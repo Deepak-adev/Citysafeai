@@ -34,6 +34,43 @@
         <h1>Welcome to CitySafe AI</h1>
         <p>This is your Django application homepage. The setup is complete and working!</p>
         <p>You can now start building your CitySafe AI features.</p>
+        
+        <div style="margin-top: 30px;">
+            <h2>Crime Prediction API</h2>
+            <button onclick="getCrimePredictions()" style="padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 5px; cursor: pointer;">Get Crime Predictions</button>
+            <div id="results" style="margin-top: 20px; max-height: 400px; overflow-y: auto; background: #f9f9f9; padding: 15px; border-radius: 5px;"></div>
+        </div>
     </div>
+    
+    <script>
+        async function getCrimePredictions() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = 'Loading crime predictions...';
+            
+            try {
+                const response = await fetch('/api/crime-predictions/?city=Chennai&count=100');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    let html = `<h3>Crime Predictions for ${data.city}</h3>`;
+                    html += `<p>Total coordinates: ${data.total_coordinates}</p>`;
+                    html += '<div style="max-height: 300px; overflow-y: auto;">';
+                    
+                    data.coordinates.forEach((coord, index) => {
+                        html += `<div style="margin: 5px 0; padding: 5px; background: white; border-radius: 3px;">`;
+                        html += `${index + 1}. Lat: ${coord.lat}, Lng: ${coord.lng}, Risk: ${coord.risk_level}`;
+                        html += '</div>';
+                    });
+                    
+                    html += '</div>';
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = `<p style="color: red;">Error: ${data.message}</p>`;
+                }
+            } catch (error) {
+                resultsDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+            }
+        }
+    </script>
 </body>
 </html>
