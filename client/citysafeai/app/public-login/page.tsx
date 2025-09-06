@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Users, Building, Award, Globe, Shield, ChevronLeft } from "lucide-react"
+import Navbar from "@/components/ui/navbar"
 
 interface EmergencyContact {
   name: string
@@ -113,6 +114,7 @@ export default function PublicLoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-slate-800 overflow-hidden">
+      <Navbar />
       {/* Government Seal Background Pattern */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-5">
         <div className="absolute top-10 left-10 w-32 h-32">
@@ -154,10 +156,6 @@ export default function PublicLoginPage() {
       <div className="relative min-h-screen flex items-center justify-center px-6 lg:px-8 py-8">
         <div className="w-full max-w-2xl space-y-6">
           <div className="text-center space-y-4">
-            <Link href="/" className="group inline-flex items-center text-blue-700 hover:text-blue-800 transition-all duration-300 text-sm font-medium hover:scale-105 transform">
-              <ChevronLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform duration-300" />
-              Back to Home
-            </Link>
             
             
             <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">

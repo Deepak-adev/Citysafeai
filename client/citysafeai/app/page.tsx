@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Shield, MapPin, Route, Users, Brain, TrendingUp, ChevronRight, Play, Building, Award, Globe } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Navbar from "@/components/ui/navbar";
 
 export default function CitySafeAILanding() {
   const [scrollY, setScrollY] = useState(0);
@@ -108,6 +109,7 @@ export default function CitySafeAILanding() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-slate-800 overflow-hidden">
+      <Navbar />
       {/* Government Seal Background Pattern */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-5">
         <div className="absolute top-10 left-10 w-32 h-32">

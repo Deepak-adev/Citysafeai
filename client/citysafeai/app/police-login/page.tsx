@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Shield, Building, Award, Globe, ChevronLeft } from "lucide-react"
+import Navbar from "@/components/ui/navbar"
 
 export default function PoliceLoginPage() {
   const [username, setUsername] = useState("")
@@ -41,6 +42,7 @@ export default function PoliceLoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-slate-800 overflow-hidden">
+      <Navbar />
       {/* Government Seal Background Pattern */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-5">
         <div className="absolute top-10 left-10 w-32 h-32">
