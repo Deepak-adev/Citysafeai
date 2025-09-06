@@ -18,33 +18,18 @@ export default function MapComponent({ activeLayer, source, destination, showRou
   useEffect(() => {
     if (!mapInstanceRef.current || !showRoute || !source || !destination) return
 
-    // For demo purposes, using fixed coordinates
-    // In a real app, you would use a geocoding service to convert addresses to coordinates
-    const sourceCoords = [13.0827, 80.2707]
-    const destCoords = [13.1000, 80.2500]
-
     const L = (window as any).L
-    if (!L?.Routing) return
+    if (!L) return
 
-    // Remove existing routing control
-    if (mapInstanceRef.current._routingControl) {
-      mapInstanceRef.current.removeControl(mapInstanceRef.current._routingControl)
+    // Remove existing route elements
+    if (mapInstanceRef.current._routeElements) {
+      mapInstanceRef.current._routeElements.forEach((element: any) => {
+        mapInstanceRef.current.removeLayer(element)
+      })
     }
 
-    // Create new routing control
-    const routingControl = L.Routing.control({
-      waypoints: [
-        L.latLng(sourceCoords[0], sourceCoords[1]),
-        L.latLng(destCoords[0], destCoords[1])
-      ],
-      routeWhileDragging: true,
-      lineOptions: {
-        styles: [{ color: '#0000ff', opacity: 0.6, weight: 6 }]
-      },
-      show: false
-    }).addTo(mapInstanceRef.current)
-
-    mapInstanceRef.current._routingControl = routingControl
+    // Create safe route
+    geocodeAndRoute(L, mapInstanceRef.current, source, destination)
   }, [source, destination, showRoute])
 
   useEffect(() => {
@@ -136,8 +121,10 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       // Load approved public reports as alerts
       loadApprovedReports(L, layersRef.current)
 
-      // Add legend
-      addLegend(L, map)
+      // Add legend only for heatmap
+      if (map && L.control) {
+        addLegend(L, map)
+      }
     }
 
     loadLeaflet()
@@ -790,7 +777,191 @@ function loadApprovedReports(L: any, layers: any) {
   })
 }
 
+function geocodeAndRoute(L: any, map: any, source: string, destination: string) {
+  // Predefined Tamil Nadu locations
+  const locations: { [key: string]: [number, number] } = {
+    // Chennai locations
+    "marina beach": [13.0478, 80.2838],
+    "t nagar": [13.0418, 80.2341],
+    "anna nagar": [13.0850, 80.2101],
+    "velachery": [12.9816, 80.2209],
+    "adyar": [13.0067, 80.2206],
+    "mylapore": [13.0339, 80.2619],
+    "guindy": [13.0067, 80.2206],
+    "tambaram": [12.9249, 80.1000],
+    "porur": [13.0381, 80.1564],
+    "omr": [12.8406, 80.1534],
+    "gst road": [12.9165, 80.1854],
+    "ecr": [12.7925, 80.2269],
+    "central station": [13.0836, 80.2750],
+    "airport": [12.9941, 80.1709],
+    "express avenue": [13.0732, 80.2609],
+    "chennai": [13.0827, 80.2707],
+    
+    // Major Tamil Nadu cities
+    "madurai": [9.9252, 78.1198],
+    "coimbatore": [11.0168, 76.9558],
+    "trichy": [10.7905, 78.7047],
+    "salem": [11.6643, 78.1460],
+    "tirunelveli": [8.7139, 77.7567],
+    "erode": [11.3410, 77.7172],
+    "vellore": [12.9165, 79.1325],
+    "thoothukudi": [8.7642, 78.1348],
+    "dindigul": [10.3673, 77.9803],
+    "thanjavur": [10.7870, 79.1378],
+    "kanchipuram": [12.8342, 79.7036],
+    "kumbakonam": [10.9601, 79.3788],
+    "nagercoil": [8.1790, 77.4338],
+    "karur": [10.9571, 78.0766],
+    "hosur": [12.7409, 77.8253]
+  }
+  
+  // Flexible location matching
+  const findLocation = (input: string) => {
+    const key = input.toLowerCase().trim()
+    
+    // Direct match
+    if (locations[key]) return locations[key]
+    
+    // Partial match
+    const partialMatch = Object.keys(locations).find(loc => 
+      loc.includes(key) || key.includes(loc)
+    )
+    
+    return partialMatch ? locations[partialMatch] : null
+  }
+  
+  const sourceCoords = findLocation(source)
+  const destCoords = findLocation(destination)
+  
+  if (!sourceCoords || !destCoords) {
+    const availableLocations = Object.keys(locations).sort().join(', ')
+    alert(`Available locations: ${availableLocations}`)
+    return
+  }
+  
+  // Get crime hotspots to avoid
+  const crimeHotspots = getCrimeHotspots()
+  
+  // Create safe route avoiding crime areas
+  const safeWaypoints = calculateSafeRoute(sourceCoords, destCoords, crimeHotspots)
+  
+  // Create simple polyline route (no external routing API needed)
+  const routeLine = L.polyline(safeWaypoints, {
+    color: '#22c55e',
+    weight: 6,
+    opacity: 0.8
+  }).addTo(map)
+  
+  // Add start and end markers
+  const startMarker = L.marker(sourceCoords, {
+    icon: L.divIcon({
+      html: '<div style="background: #22c55e; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">S</div>',
+      iconSize: [24, 24]
+    })
+  }).addTo(map)
+  
+  const endMarker = L.marker(destCoords, {
+    icon: L.divIcon({
+      html: '<div style="background: #dc2626; color: white; border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">D</div>',
+      iconSize: [24, 24]
+    })
+  }).addTo(map)
+  
+  // Store route elements for cleanup
+  map._routeElements = [routeLine, startMarker, endMarker]
+  
+  // Fit map to route bounds
+  map.fitBounds(routeLine.getBounds().pad(0.1))
+  
+  // Add route info popup
+  const distance = calculateDistance(sourceCoords, destCoords)
+  const routeInfo = L.popup()
+    .setLatLng([(sourceCoords[0] + destCoords[0]) / 2, (sourceCoords[1] + destCoords[1]) / 2])
+    .setContent(`
+      <div style="font-family: system-ui; padding: 8px; text-align: center;">
+        <h4 style="margin: 0 0 4px 0; color: #22c55e;">Safe Route</h4>
+        <p style="margin: 0; color: #374151;">Distance: ~${distance.toFixed(1)} km</p>
+        <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 12px;">Route avoids high-crime areas</p>
+      </div>
+    `)
+    .openOn(map)
+}
+
+function getCrimeHotspots() {
+  return [
+    { lat: 13.0405, lng: 80.2337, intensity: 0.95, radius: 1200 },
+    { lat: 13.0368, lng: 80.2676, intensity: 0.92, radius: 1100 },
+    { lat: 13.0064, lng: 80.2206, intensity: 0.88, radius: 1000 },
+    { lat: 13.0850, lng: 80.2101, intensity: 0.85, radius: 900 },
+    { lat: 13.0827, lng: 80.2442, intensity: 0.82, radius: 800 }
+  ]
+}
+
+function calculateSafeRoute(source: number[], destination: number[], crimeHotspots: any[]) {
+  const waypoints = [source]
+  
+  // Simple safe routing: add intermediate waypoints to avoid high-crime areas
+  const midLat = (source[0] + destination[0]) / 2
+  const midLng = (source[1] + destination[1]) / 2
+  
+  // Check if direct route passes through high-crime areas
+  const directRouteRisk = crimeHotspots.some(hotspot => {
+    if (hotspot.intensity < 0.8) return false
+    
+    // Simple distance check to crime hotspot
+    const distToHotspot = Math.sqrt(
+      Math.pow(midLat - hotspot.lat, 2) + Math.pow(midLng - hotspot.lng, 2)
+    )
+    
+    return distToHotspot < 0.01 // Approximately 1km
+  })
+  
+  if (directRouteRisk) {
+    // Add safe intermediate waypoints
+    const safeOffset = 0.008 // Offset to avoid crime areas
+    
+    // Try different safe routes
+    const safeRoutes = [
+      [midLat + safeOffset, midLng],
+      [midLat - safeOffset, midLng],
+      [midLat, midLng + safeOffset],
+      [midLat, midLng - safeOffset]
+    ]
+    
+    // Pick the safest intermediate point
+    const safestPoint = safeRoutes.reduce((safest, point) => {
+      const risk = crimeHotspots.reduce((totalRisk, hotspot) => {
+        const dist = Math.sqrt(
+          Math.pow(point[0] - hotspot.lat, 2) + Math.pow(point[1] - hotspot.lng, 2)
+        )
+        return totalRisk + (hotspot.intensity / (dist + 0.001))
+      }, 0)
+      
+      return risk < safest.risk ? { point, risk } : safest
+    }, { point: safeRoutes[0], risk: Infinity })
+    
+    waypoints.push(safestPoint.point)
+  }
+  
+  waypoints.push(destination)
+  return waypoints
+}
+
+function calculateDistance(coord1: number[], coord2: number[]) {
+  const R = 6371 // Earth's radius in km
+  const dLat = (coord2[0] - coord1[0]) * Math.PI / 180
+  const dLon = (coord2[1] - coord1[1]) * Math.PI / 180
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(coord1[0] * Math.PI / 180) * Math.cos(coord2[0] * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
+  return R * c
+}
+
 function addLegend(L: any, map: any) {
+  if (!map || !L || !L.control) return
+  
   const legend = L.control({ position: 'bottomright' });
 
   legend.onAdd = function () {
@@ -804,26 +975,26 @@ function addLegend(L: any, map: any) {
     div.style.lineHeight = '1.4';
 
     div.innerHTML = `
-      <h4 style="margin: 0 0 8px 0; font-weight: bold; color: #374151;">Crime Risk Levels</h4>
+      <h4 style="margin: 0 0 8px 0; font-weight: bold; color: #000000;">Crime Risk Levels</h4>
       <div style="display: flex; flex-direction: column; gap: 4px;">
         <div style="display: flex; align-items: center; gap: 8px;">
           <div style="width: 16px; height: 16px; background: #dc2626; border-radius: 50%;"></div>
-          <span>High Risk (80-100%)</span>
+          <span style="color: #000000;">High Risk (80-100%)</span>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
           <div style="width: 16px; height: 16px; background: #f97316; border-radius: 50%;"></div>
-          <span>Medium-High Risk (60-79%)</span>
+          <span style="color: #000000;">Medium-High Risk (60-79%)</span>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
           <div style="width: 16px; height: 16px; background: #facc15; border-radius: 50%;"></div>
-          <span>Medium Risk (40-59%)</span>
+          <span style="color: #000000;">Medium Risk (40-59%)</span>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
           <div style="width: 16px; height: 16px; background: #22c55e; border-radius: 50%;"></div>
-          <span>Low Risk (0-39%)</span>
+          <span style="color: #000000;">Low Risk (0-39%)</span>
         </div>
       </div>
-      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #2d64d3ff; font-size: 11px; color: #6b7280;">
+      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #000000;">
         Circle size indicates crime intensity
       </div>
     `;

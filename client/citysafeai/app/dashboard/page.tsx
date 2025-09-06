@@ -158,6 +158,7 @@ export default function DashboardPage() {
             <div className="hidden sm:block text-sm text-muted-foreground">Welcome, {username}</div>
           </div>
           <div className="flex items-center space-x-2">
+
             {userRole === "public" && (
               <Dialog modal={true} open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
                 <DialogTrigger asChild>

@@ -107,16 +107,6 @@ export default function PublicDashboardPage() {
       bgColor: "bg-amber-50",
       borderColor: "border-amber-200",
       hoverColor: "hover:from-amber-700 hover:to-amber-900"
-    },
-    {
-      id: "report",
-      title: "Incident Reporting",
-      description: "Report incidents and suspicious activities",
-      icon: Plus,
-      color: "from-emerald-600 to-emerald-800",
-      bgColor: "bg-emerald-50",
-      borderColor: "border-emerald-200",
-      hoverColor: "hover:from-emerald-700 hover:to-emerald-900"
     }
   ]
 
