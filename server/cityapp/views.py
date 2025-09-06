@@ -6,6 +6,7 @@ from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 from .services import CrimePredictionService
 import json
+import time
 
 # Mock Police ID Database
 VALID_POLICE_IDS = {
@@ -25,9 +26,17 @@ def home(request):
     return render(request, 'cityapp/home.html')
 
 @csrf_exempt
-@require_http_methods(["GET"])
+@require_http_methods(["GET", "OPTIONS"])
 def get_crime_predictions(request):
     """API endpoint to get crime prediction coordinates"""
+    if request.method == 'OPTIONS':
+        # Handle CORS preflight request
+        response = JsonResponse({})
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Cache-Control, Pragma'
+        return response
+    
     if request.method == 'GET':
         # Initialize the service with Gemini API key
         api_key = "AIzaSyB5JCLElwe1mT7THvsehV0UHTyUQPlfjrE"
@@ -45,20 +54,33 @@ def get_crime_predictions(request):
             latitudes = [coord['lat'] for coord in coordinates]
             longitudes = [coord['lng'] for coord in coordinates]
             
-            return JsonResponse({
+            response = JsonResponse({
                 'status': 'success',
                 'city': city,
                 'total_coordinates': len(coordinates),
                 'latitudes': latitudes,
                 'longitudes': longitudes,
-                'coordinates': coordinates
+                'coordinates': coordinates,
+                'timestamp': int(time.time() * 1000)  # Add timestamp for caching
             })
+            
+            # Add CORS headers for better performance
+            response['Access-Control-Allow-Origin'] = '*'
+            response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+            response['Access-Control-Allow-Headers'] = 'Content-Type, Cache-Control, Pragma'
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            
+            return response
         
         except Exception as e:
-            return JsonResponse({
+            error_response = JsonResponse({
                 'status': 'error',
                 'message': str(e)
             }, status=500)
+            error_response['Access-Control-Allow-Origin'] = '*'
+            return error_response
     
     return JsonResponse({'status': 'error', 'message': 'Only GET method allowed'}, status=405)
 

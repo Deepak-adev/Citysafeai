@@ -373,6 +373,75 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Heatmap Controls */}
+        {activeLayer === "heatmap" && (
+          <div className="absolute top-4 left-4 z-[1000]">
+            <Card className="p-3 bg-white/90 backdrop-blur-sm border-slate-200/50 shadow-lg">
+              <div className="flex items-center space-x-3">
+                <div className="text-sm">
+                  <p className="font-semibold text-slate-900">Crime Hotspots</p>
+                  <p className="text-xs text-slate-600">Live AI predictions</p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // Trigger a manual refresh by dispatching a custom event
+                    window.dispatchEvent(new CustomEvent('refreshHotspots'))
+                  }}
+                  className="flex items-center space-x-1"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  <span>Refresh</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('http://localhost:8000/api/crime-predictions/?city=TamilNadu&count=10')
+                      const data = await response.json()
+                      console.log('API Test Response:', data)
+                      alert(`API Test: ${data.status} - ${data.total_coordinates} coordinates received`)
+                    } catch (error) {
+                      console.error('API Test Error:', error)
+                      alert('API Test Failed: ' + error.message)
+                    }
+                  }}
+                  className="flex items-center space-x-1 ml-2"
+                >
+                  <span>Test API</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    // Force show hotspots by dispatching refresh event
+                    window.dispatchEvent(new CustomEvent('refreshHotspots'))
+                    // Also try to fit map bounds
+                    setTimeout(() => {
+                      const mapElement = document.querySelector('#map')
+                      if (mapElement && (window as any).L) {
+                        const L = (window as any).L
+                        const map = L.map('map')
+                        if (map) {
+                          map.setView([13.0827, 80.2707], 12)
+                          console.log('Map view reset to Chennai center')
+                        }
+                      }
+                    }, 1000)
+                  }}
+                  className="flex items-center space-x-1 ml-2"
+                >
+                  <span>Show Hotspots</span>
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* Active Feature Display - Desktop Version */}
         <div className="hidden md:block absolute top-4 right-4 z-[1000]">
           <Card className="p-4 bg-white/90 backdrop-blur-sm border-slate-200/50 shadow-lg">
@@ -397,6 +466,9 @@ export default function DashboardPage() {
                   {activeLayer === "zones" && "Zone Management"}
                 </h3>
                 <p className="text-sm text-slate-600 font-medium">Active Feature</p>
+                {activeLayer === "heatmap" && (
+                  <p className="text-xs text-green-600 font-medium mt-1">🔄 Auto-refreshing every 2 minutes</p>
+                )}
               </div>
             </div>
           </Card>
@@ -427,6 +499,9 @@ export default function DashboardPage() {
                     {activeLayer === "zones" && "Zone Management"}
                   </h4>
                   <p className="text-xs text-slate-600 font-medium">Active</p>
+                  {activeLayer === "heatmap" && (
+                    <p className="text-xs text-green-600 font-medium">🔄 Auto-refresh</p>
+                  )}
                 </div>
               </div>
             </Card>

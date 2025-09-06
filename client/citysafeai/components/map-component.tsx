@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 
 interface MapComponentProps {
   activeLayer: string
@@ -13,6 +13,10 @@ export default function MapComponent({ activeLayer, source, destination, showRou
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const layersRef = useRef<any>({})
+  const [isLoadingHotspots, setIsLoadingHotspots] = useState(false)
+  const lastHotspotUpdateRef = useRef<number>(0)
+  const hotspotCacheRef = useRef<any[]>([])
+  const cacheTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   // Handle route display
   useEffect(() => {
@@ -85,11 +89,11 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         show: false
       });
 
-      // Tamil Nadu inland center coordinates (away from coast)
-      const tnCoords: [number, number] = [11.0168, 77.5]
+      // Chennai center coordinates for better hotspot visibility
+      const chennaiCoords: [number, number] = [13.0827, 80.2707]
 
       // Initialize map
-      const map = L.map(mapRef.current).setView(tnCoords, 7)
+      const map = L.map(mapRef.current).setView(chennaiCoords, 11)
       mapInstanceRef.current = map
 
       // Add OpenStreetMap tiles
@@ -120,6 +124,17 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       
       // Load approved public reports as alerts
       loadApprovedReports(L, layersRef.current)
+
+      // Add default heatmap layer to map
+      if (layersRef.current.heatmap) {
+        console.log('Adding initial heatmap layer to map')
+        layersRef.current.heatmap.addTo(map)
+        console.log('Initial heatmap layer added successfully')
+        console.log('Heatmap layer has', layersRef.current.heatmap.getLayers().length, 'layers')
+      }
+
+      // Start automatic hotspot refresh
+      startAutomaticHotspotRefresh()
     }
 
     loadLeaflet()
@@ -130,8 +145,45 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         mapInstanceRef.current.remove()
         mapInstanceRef.current = null
       }
+      if (cacheTimeoutRef.current) {
+        clearTimeout(cacheTimeoutRef.current)
+      }
     }
   }, [])
+
+  // Automatic hotspot refresh function
+  const startAutomaticHotspotRefresh = () => {
+    const refreshHotspots = async () => {
+      if (!mapInstanceRef.current || !layersRef.current) return
+
+      const L = (window as any).L
+      if (!L) return
+
+      // Only refresh if heatmap is active or if cache is stale (older than 5 minutes)
+      const now = Date.now()
+      const shouldRefresh = activeLayer === 'heatmap' || 
+                           (now - lastHotspotUpdateRef.current) > 5 * 60 * 1000
+
+      if (shouldRefresh && !isLoadingHotspots) {
+        setIsLoadingHotspots(true)
+        try {
+          await setupEnhancedDemoLayers(L, layersRef.current)
+          lastHotspotUpdateRef.current = now
+          console.log('Hotspots refreshed automatically')
+        } catch (error) {
+          console.error('Error refreshing hotspots:', error)
+        } finally {
+          setIsLoadingHotspots(false)
+        }
+      }
+
+      // Schedule next refresh (every 2 minutes)
+      cacheTimeoutRef.current = setTimeout(refreshHotspots, 2 * 60 * 1000)
+    }
+
+    // Start the refresh cycle
+    cacheTimeoutRef.current = setTimeout(refreshHotspots, 2 * 60 * 1000)
+  }
 
   // Handle layer visibility and refresh approved reports
   useEffect(() => {
@@ -155,7 +207,11 @@ export default function MapComponent({ activeLayer, source, destination, showRou
 
       // Add active layer
       if (activeLayer && layersRef.current[activeLayer]) {
+        console.log(`Adding ${activeLayer} layer to map`)
         layersRef.current[activeLayer].addTo(mapInstanceRef.current)
+        console.log(`Layer ${activeLayer} added successfully`)
+      } else {
+        console.log(`Layer ${activeLayer} not found or map not ready`)
       }
     }
     
@@ -175,62 +231,136 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       }
     }
 
+    const handleHotspotRefresh = async () => {
+      if (!mapInstanceRef.current || !layersRef.current) return
+      
+      const L = (window as any).L
+      if (L && !isLoadingHotspots) {
+        setIsLoadingHotspots(true)
+        try {
+          await setupEnhancedDemoLayers(L, layersRef.current)
+          lastHotspotUpdateRef.current = Date.now()
+          console.log('Hotspots refreshed manually')
+        } catch (error) {
+          console.error('Error refreshing hotspots:', error)
+        } finally {
+          setIsLoadingHotspots(false)
+        }
+      }
+    }
+
     window.addEventListener('storage', handleStorageChange)
-    
-    // Also listen for custom event for same-tab updates
     window.addEventListener('publicReportsUpdated', handleStorageChange)
+    window.addEventListener('refreshHotspots', handleHotspotRefresh)
     
     return () => {
       window.removeEventListener('storage', handleStorageChange)
       window.removeEventListener('publicReportsUpdated', handleStorageChange)
+      window.removeEventListener('refreshHotspots', handleHotspotRefresh)
     }
-  }, [activeLayer])
+  }, [activeLayer, isLoadingHotspots])
 
-  return <div ref={mapRef} className="w-full h-full rounded-lg" />
+  return (
+    <div className="relative w-full h-full rounded-lg">
+      <div ref={mapRef} className="w-full h-full rounded-lg" />
+      {isLoadingHotspots && (
+        <div className="absolute top-4 right-4 z-[1000] bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg p-3 shadow-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <div className="text-sm">
+              <div className="font-medium text-slate-700">Loading AI Predictions...</div>
+              <div className="text-xs text-slate-500">This may take 15-30 seconds</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
-async function setupEnhancedDemoLayers(L: any, layers: any) {
+async function setupEnhancedDemoLayers(L: any, layers: any, useCache: boolean = true) {
   let crimeHotspots: any[] = []
   
+  console.log('Setting up enhanced demo layers...')
+  
   try {
+    console.log('🔄 Starting API call to fetch crime predictions...')
+    console.log('⏳ This may take 15-30 seconds for AI processing...')
+    
+    // Add timeout to prevent hanging requests
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      console.log('⏰ API call timed out after 30 seconds')
+      controller.abort()
+    }, 30000) // 30 second timeout
+    
     // Fetch crime hotspots from server API
-    const response = await fetch('http://localhost:8000/api/crime-predictions/?city=TamilNadu&count=100')
+    const response = await fetch('http://localhost:8000/api/crime-predictions/?city=TamilNadu&count=50', {
+      signal: controller.signal
+      // Removed headers that cause CORS issues
+    })
+    
+    clearTimeout(timeoutId)
+    console.log('📡 API Response status:', response.status, response.statusText)
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`)
+    }
+    
     const data = await response.json()
+    console.log('📊 Full API Response:', data)
     
     if (data.status === 'success' && data.coordinates) {
+      console.log('✅ API Success! Raw coordinates count:', data.coordinates.length)
+      console.log('📍 Raw API coordinates (first 3):', data.coordinates.slice(0, 3))
+      
       // Transform server data to match expected format
       crimeHotspots = data.coordinates.map((coord: any, index: number) => {
-        const riskIntensity = {
+        console.log(`🔄 Processing coordinate ${index + 1}:`, coord)
+        
+        const riskLevels = {
           'high': 0.8 + Math.random() * 0.2,
           'medium': 0.4 + Math.random() * 0.4,
           'low': 0.1 + Math.random() * 0.3
-        }[coord.risk_level] || 0.5
+        } as const
+        const riskIntensity = riskLevels[coord.risk_level as keyof typeof riskLevels] || 0.5
         
-        return {
+        const hotspot = {
           lat: coord.lat,
           lng: coord.lng,
           intensity: riskIntensity,
-          area: `TN Location ${index + 1}`,
+          area: `API Location ${index + 1}`,
           crimes: Math.floor(riskIntensity * 70)
         }
+        
+        console.log(`✅ Created hotspot ${index + 1}:`, hotspot)
+        return hotspot
       })
+      
+      console.log(`🎯 Successfully processed ${crimeHotspots.length} API hotspots`)
+      console.log('📍 First few processed hotspots:', crimeHotspots.slice(0, 3))
+    } else {
+      console.log('❌ API Response issue - status:', data.status, 'coordinates:', data.coordinates)
     }
   } catch (error) {
-    console.error('Failed to fetch crime data from server:', error)
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.warn('⏰ Crime data request timed out, using fallback data')
+    } else {
+      console.error('💥 Failed to fetch crime data from server:', error)
+    }
   }
   
-  // Fallback to default data if server request fails
+  // Only use API data - no fallback
   if (crimeHotspots.length === 0) {
-    crimeHotspots = [
-      { lat: 13.0405, lng: 80.2337, intensity: 0.95, area: "T. Nagar Main Road", crimes: 67 },
-      { lat: 13.0368, lng: 80.2676, intensity: 0.92, area: "Mylapore East", crimes: 58 },
-      { lat: 13.0064, lng: 80.2206, intensity: 0.88, area: "Guindy Railway Station", crimes: 52 },
-      { lat: 13.0850, lng: 80.2101, intensity: 0.85, area: "Anna Nagar West", crimes: 48 },
-      { lat: 13.0827, lng: 80.2442, intensity: 0.82, area: "Kilpauk Garden Road", crimes: 45 }
-    ]
+    console.log('❌ No API data received - showing empty map')
+    return // Don't add any hotspots if API fails
+  } else {
+    console.log(`🎉 Using ${crimeHotspots.length} REAL API hotspots!`)
   }
 
-  crimeHotspots.forEach((hotspot) => {
+  console.log(`Adding ${crimeHotspots.length} crime hotspots to heatmap layer`)
+  
+  crimeHotspots.forEach((hotspot, index) => {
     // Calculate color based on intensity
     const getColor = (intensity: number) => {
       if (intensity >= 0.8) return "#dc2626" // High risk - Red
@@ -239,12 +369,14 @@ async function setupEnhancedDemoLayers(L: any, layers: any) {
       return "#22c55e" // Low risk - Green
     }
 
+    console.log(`Adding hotspot ${index + 1}: ${hotspot.area} at [${hotspot.lat}, ${hotspot.lng}]`)
+
     const circle = L.circle([hotspot.lat, hotspot.lng], {
       color: getColor(hotspot.intensity),
       fillColor: getColor(hotspot.intensity),
-      fillOpacity: hotspot.intensity * 0.35,
-      radius: hotspot.intensity * 1200,
-      weight: 2,
+      fillOpacity: 0.7, // Increased opacity for better visibility
+      radius: 500, // Fixed radius for better visibility
+      weight: 3,
     })
 
     circle.bindPopup(`
@@ -285,8 +417,29 @@ async function setupEnhancedDemoLayers(L: any, layers: any) {
       </div>
     `)
 
-    circle.addTo(layers.heatmap)
+    layers.heatmap.addLayer(circle)
   })
+  
+  console.log(`Successfully added ${crimeHotspots.length} hotspots to heatmap layer`)
+  
+  // Fit map bounds to show all hotspots if we have any
+  if (crimeHotspots.length > 0) {
+    try {
+      const bounds = L.latLngBounds()
+      crimeHotspots.forEach(hotspot => {
+        bounds.extend([hotspot.lat, hotspot.lng])
+      })
+      
+      // Get the map instance from the layer
+      const map = layers.heatmap._map || mapInstanceRef.current
+      if (map) {
+        map.fitBounds(bounds.pad(0.1))
+        console.log('Map bounds fitted to show all hotspots')
+      }
+    } catch (error) {
+      console.log('Could not fit bounds, but hotspots are added:', error)
+    }
+  }
 
   // Patrol layer - Enhanced polyline routes with multiple patrol paths
   const patrolRoutes = [
