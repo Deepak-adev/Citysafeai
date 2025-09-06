@@ -137,7 +137,7 @@ export default function CitySafeAILanding() {
               className="group bg-gradient-to-r from-emerald-600 to-emerald-700 text-white px-8 py-4 rounded-lg text-lg font-semibold hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-500 transform hover:scale-105 hover:-translate-y-1 flex items-center space-x-3 hover:from-emerald-700 hover:to-emerald-800"
             >
               <Shield className="w-5 h-5 transition-transform duration-300 group-hover:rotate-3" />
-              <span>Law Enforcement Portal</span>
+              <span>Police Portal</span>
               <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-300" />
             </button>
             
