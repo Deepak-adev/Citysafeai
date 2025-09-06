@@ -1,9 +1,13 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import dynamic from "next/dynamic"
+
+// Dynamically import OpenLayers to avoid SSR issues
+const MapPicker = dynamic(() => import('./map-picker'), { ssr: false })
 
 const incidentTypes = [
   "Theft",
@@ -40,6 +44,10 @@ export function IncidentReportForm({ onClose }: IncidentReportFormProps) {
     location: "",
     severity: "Low"
   })
+  const [locationMethod, setLocationMethod] = useState<'manual' | 'current' | 'landmark' | 'map'>('manual')
+  const [isGettingLocation, setIsGettingLocation] = useState(false)
+  const [mapCenter, setMapCenter] = useState([13.0827, 80.2707]) // Chennai coordinates
+  const [selectedPin, setSelectedPin] = useState<[number, number] | null>(null)
   const [uploads, setUploads] = useState<FileUpload[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -186,15 +194,118 @@ export function IncidentReportForm({ onClose }: IncidentReportFormProps) {
 
       <div className="space-y-2">
         <Label htmlFor="location">Location</Label>
-        <Input
-          id="location"
-          type="text"
-          placeholder="Enter incident location"
-          value={formData.location}
-          onChange={(e) => setFormData({ ...formData, location: e.target.value })}
-          required
-          className="bg-transparent"
-        />
+        <div className="flex gap-2 mb-2">
+          <Button
+            type="button"
+            variant={locationMethod === 'manual' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setLocationMethod('manual')}
+          >
+            Manual
+          </Button>
+          <Button
+            type="button"
+            variant={locationMethod === 'current' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setLocationMethod('current')
+              setIsGettingLocation(true)
+              navigator.geolocation.getCurrentPosition(
+                (position) => {
+                  const { latitude, longitude } = position.coords
+                  setFormData({ ...formData, location: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` })
+                  setIsGettingLocation(false)
+                },
+                () => {
+                  alert('Unable to get current location')
+                  setIsGettingLocation(false)
+                  setLocationMethod('manual')
+                }
+              )
+            }}
+            disabled={isGettingLocation}
+          >
+            {isGettingLocation ? 'Getting...' : 'Current'}
+          </Button>
+          <Button
+            type="button"
+            variant={locationMethod === 'landmark' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setLocationMethod('landmark')}
+          >
+            Landmark
+          </Button>
+          <Button
+            type="button"
+            variant={locationMethod === 'map' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setLocationMethod('map')}
+          >
+            Pin on Map
+          </Button>
+        </div>
+        {locationMethod === 'manual' && (
+          <Input
+            id="location"
+            type="text"
+            placeholder="Enter incident location"
+            value={formData.location}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            required
+            className="bg-transparent"
+          />
+        )}
+        {locationMethod === 'current' && (
+          <Input
+            id="location"
+            type="text"
+            placeholder="Getting current location..."
+            value={formData.location}
+            readOnly
+            className="bg-transparent"
+          />
+        )}
+        {locationMethod === 'landmark' && (
+          <select
+            className="w-full p-2 bg-background border rounded-md"
+            value={formData.location}
+            onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+            required
+          >
+            <option value="">Select landmark</option>
+            <option value="Marina Beach">Marina Beach</option>
+            <option value="T. Nagar">T. Nagar</option>
+            <option value="Anna Nagar">Anna Nagar</option>
+            <option value="Velachery">Velachery</option>
+            <option value="Adyar">Adyar</option>
+            <option value="Mylapore">Mylapore</option>
+            <option value="Guindy">Guindy</option>
+            <option value="Tambaram">Tambaram</option>
+            <option value="Porur">Porur</option>
+            <option value="OMR (IT Corridor)">OMR (IT Corridor)</option>
+            <option value="GST Road">GST Road</option>
+            <option value="ECR (East Coast Road)">ECR (East Coast Road)</option>
+          </select>
+        )}
+        {locationMethod === 'map' && (
+          <div className="space-y-2">
+            <MapPicker
+              onLocationSelect={(lat, lng) => {
+                setSelectedPin([lat, lng])
+                setFormData({ ...formData, location: `${lat.toFixed(6)}, ${lng.toFixed(6)}` })
+              }}
+            />
+            {selectedPin && (
+              <Input
+                type="text"
+                value={formData.location}
+                readOnly
+                className="bg-transparent text-sm"
+                placeholder="Coordinates will appear here"
+              />
+            )}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">

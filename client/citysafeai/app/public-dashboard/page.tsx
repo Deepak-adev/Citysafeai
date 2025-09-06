@@ -112,17 +112,7 @@ export default function PublicDashboardPage() {
                 <span className="mr-2">🔥</span>
                 Heatmap
               </Button>
-              <Button
-                variant={activeLayer === "patrol" ? "default" : "outline"}
-                size="sm"
-                onClick={() => {
-                  toggleLayer("patrol")
-                  setIsMobileMenuOpen(false)
-                }}
-              >
-                <span className="mr-2">🚔</span>
-                Patrol
-              </Button>
+
               <Button
                 variant={activeLayer === "saferoute" ? "default" : "outline"}
                 size="sm"
@@ -277,15 +267,7 @@ export default function PublicDashboardPage() {
                 <span className="mr-2">🔥</span>
                 Heatmap
               </Button>
-              <Button
-                variant={activeLayer === "patrol" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setActiveLayer("patrol")}
-                className="justify-start"
-              >
-                <span className="mr-2">🚔</span>
-                Patrol
-              </Button>
+
               <Button
                 variant={activeLayer === "saferoute" ? "default" : "outline"}
                 size="sm"
