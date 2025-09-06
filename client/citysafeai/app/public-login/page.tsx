@@ -79,7 +79,7 @@ export default function PublicLoginPage() {
       localStorage.setItem("userLocation", JSON.stringify(useManualLocation ? { address: manualAddress } : location))
       localStorage.setItem("emergencyContacts", JSON.stringify(emergencyContacts.filter(c => c.name && c.phone)))
     }
-
+    
     router.push("/dashboard")
     setIsLoading(false)
   }

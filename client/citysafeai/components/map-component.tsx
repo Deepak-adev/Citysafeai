@@ -4,12 +4,48 @@ import { useEffect, useRef } from "react"
 
 interface MapComponentProps {
   activeLayer: string
+  source?: string
+  destination?: string
+  showRoute?: boolean
 }
 
-export default function MapComponent({ activeLayer }: MapComponentProps) {
+export default function MapComponent({ activeLayer, source, destination, showRoute }: MapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const layersRef = useRef<any>({})
+
+  // Handle route display
+  useEffect(() => {
+    if (!mapInstanceRef.current || !showRoute || !source || !destination) return
+
+    // For demo purposes, using fixed coordinates
+    // In a real app, you would use a geocoding service to convert addresses to coordinates
+    const sourceCoords = [13.0827, 80.2707]
+    const destCoords = [13.1000, 80.2500]
+
+    const L = (window as any).L
+    if (!L?.Routing) return
+
+    // Remove existing routing control
+    if (mapInstanceRef.current._routingControl) {
+      mapInstanceRef.current.removeControl(mapInstanceRef.current._routingControl)
+    }
+
+    // Create new routing control
+    const routingControl = L.Routing.control({
+      waypoints: [
+        L.latLng(sourceCoords[0], sourceCoords[1]),
+        L.latLng(destCoords[0], destCoords[1])
+      ],
+      routeWhileDragging: true,
+      lineOptions: {
+        styles: [{ color: '#0000ff', opacity: 0.6, weight: 6 }]
+      },
+      show: false
+    }).addTo(mapInstanceRef.current)
+
+    mapInstanceRef.current._routingControl = routingControl
+  }, [source, destination, showRoute])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -29,6 +65,12 @@ export default function MapComponent({ activeLayer }: MapComponentProps) {
       cssLink.crossOrigin = ""
       document.head.appendChild(cssLink)
 
+      // Load Leaflet Routing Machine CSS
+      const routingCssLink = document.createElement("link")
+      routingCssLink.rel = "stylesheet"
+      routingCssLink.href = "https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"
+      document.head.appendChild(routingCssLink)
+
       // Load Leaflet JS
       const script = document.createElement("script")
       script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
@@ -36,7 +78,13 @@ export default function MapComponent({ activeLayer }: MapComponentProps) {
       script.crossOrigin = ""
 
       script.onload = () => {
-        initializeMap((window as any).L)
+        // Load Leaflet Routing Machine after Leaflet is loaded
+        const routingScript = document.createElement("script")
+        routingScript.src = "https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"
+        routingScript.onload = () => {
+          initializeMap((window as any).L)
+        }
+        document.head.appendChild(routingScript)
       }
 
       document.head.appendChild(script)
@@ -44,6 +92,13 @@ export default function MapComponent({ activeLayer }: MapComponentProps) {
 
     const initializeMap = (L: any) => {
       if (!mapRef.current || mapInstanceRef.current) return
+
+      // Load routing plugin
+      const routingControl = L.Routing.control({
+        waypoints: [],
+        routeWhileDragging: true,
+        show: false
+      });
 
       // Chennai coordinates
       const chennaiCoords: [number, number] = [13.0827, 80.2707]
@@ -260,6 +315,13 @@ function setupEnhancedDemoLayers(L: any, layers: any) {
       severity: "high",
       time: "2 mins ago",
       description: "Multiple theft reports in the area",
+      status: "accepted",
+      patrolUnit: "Central Patrol",
+      attachments: {
+        photos: 2,
+        videos: 1,
+        documents: 1
+      }
     },
     {
       lat: 13.0458,
@@ -268,6 +330,12 @@ function setupEnhancedDemoLayers(L: any, layers: any) {
       severity: "medium",
       time: "15 mins ago",
       description: "Road accident causing traffic delays",
+      status: "pending",
+      attachments: {
+        photos: 3,
+        videos: 1,
+        documents: 0
+      }
     },
     {
       lat: 13.1067,
@@ -276,6 +344,13 @@ function setupEnhancedDemoLayers(L: any, layers: any) {
       severity: "high",
       time: "5 mins ago",
       description: "Police units dispatched to location",
+      status: "accepted",
+      patrolUnit: "North Patrol",
+      attachments: {
+        photos: 1,
+        videos: 0,
+        documents: 2
+      }
     },
     {
       lat: 13.0582,
@@ -284,6 +359,12 @@ function setupEnhancedDemoLayers(L: any, layers: any) {
       severity: "low",
       time: "1 hour ago",
       description: "Reported by community member",
+      status: "pending",
+      attachments: {
+        photos: 1,
+        videos: 0,
+        documents: 0
+      }
     },
     {
       lat: 13.1185,
@@ -292,6 +373,13 @@ function setupEnhancedDemoLayers(L: any, layers: any) {
       severity: "medium",
       time: "30 mins ago",
       description: "Street lighting maintenance required",
+      status: "accepted",
+      patrolUnit: "North Patrol",
+      attachments: {
+        photos: 2,
+        videos: 0,
+        documents: 1
+      }
     },
   ]
 
@@ -305,29 +393,89 @@ function setupEnhancedDemoLayers(L: any, layers: any) {
     const marker = L.marker([alert.lat, alert.lng], {
       icon: L.divIcon({
         className: "custom-alert-marker",
-        html: `<div style="
-          background: ${severityColors[alert.severity as keyof typeof severityColors]}; 
-          color: white; 
-          border-radius: 50%; 
-          width: 28px; 
-          height: 28px; 
-          display: flex; 
-          align-items: center; 
-          justify-content: center; 
-          font-weight: bold;
-          font-size: 14px;
-          border: 2px solid white;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        ">!</div>`,
-        iconSize: [28, 28],
+        html: `
+          <div style="position: relative;">
+            <div style="
+              background: ${severityColors[alert.severity as keyof typeof severityColors]}; 
+              color: white; 
+              border-radius: 50%; 
+              width: 28px; 
+              height: 28px; 
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              font-weight: bold;
+              font-size: 14px;
+              border: 2px solid white;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            ">!</div>
+            ${alert.status === 'accepted' ? `
+              <div style="
+                position: absolute;
+                bottom: -4px;
+                right: -4px;
+                background: #16a34a;
+                color: white;
+                border-radius: 50%;
+                width: 16px;
+                height: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                font-size: 10px;
+                border: 2px solid white;
+                box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+              ">✓</div>
+            ` : ''}
+          </div>`,
+        iconSize: [32, 32],
       }),
     })
 
     marker.bindPopup(`
-      <div style="font-family: system-ui; padding: 12px; min-width: 200px;">
+      <div style="font-family: system-ui; padding: 12px; min-width: 240px;">
         <h3 style="margin: 0 0 8px 0; color: ${severityColors[alert.severity as keyof typeof severityColors]}; font-weight: bold;">${alert.type}</h3>
         <p style="margin: 0 0 8px 0; color: #374151;">${alert.description}</p>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+        <div style="
+          margin: 8px 0;
+          padding: 8px;
+          background: ${alert.status === 'accepted' ? '#f0fdf4' : '#fef2f2'};
+          border: 1px solid ${alert.status === 'accepted' ? '#86efac' : '#fecaca'};
+          border-radius: 6px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        ">
+          <span style="
+            color: ${alert.status === 'accepted' ? '#16a34a' : '#dc2626'};
+            font-size: 13px;
+            font-weight: 500;
+          ">
+            ${alert.status === 'accepted' ? '✓ Accepted by ' + alert.patrolUnit : '⏳ Pending Response'}
+          </span>
+        </div>
+        <div style="margin: 8px 0;">
+          <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">Attachments:</div>
+          <div style="display: flex; gap: 8px;">
+            ${alert.attachments.photos > 0 ? `
+              <span style="color: #374151; font-size: 12px;">
+                📷 ${alert.attachments.photos} Photo${alert.attachments.photos > 1 ? 's' : ''}
+              </span>
+            ` : ''}
+            ${alert.attachments.videos > 0 ? `
+              <span style="color: #374151; font-size: 12px;">
+                🎥 ${alert.attachments.videos} Video${alert.attachments.videos > 1 ? 's' : ''}
+              </span>
+            ` : ''}
+            ${alert.attachments.documents > 0 ? `
+              <span style="color: #374151; font-size: 12px;">
+                📄 ${alert.attachments.documents} Doc${alert.attachments.documents > 1 ? 's' : ''}
+              </span>
+            ` : ''}
+          </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
           <span style="color: #6b7280; font-size: 12px;">${alert.time}</span>
           <span style="
             background: ${severityColors[alert.severity as keyof typeof severityColors]}; 
