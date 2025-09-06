@@ -120,11 +120,6 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       
       // Load approved public reports as alerts
       loadApprovedReports(L, layersRef.current)
-
-      // Add legend only for heatmap
-      if (map && L.control) {
-        addLegend(L, map)
-      }
     }
 
     loadLeaflet()
@@ -959,48 +954,4 @@ function calculateDistance(coord1: number[], coord2: number[]) {
   return R * c
 }
 
-function addLegend(L: any, map: any) {
-  if (!map || !L || !L.control) return
-  
-  const legend = L.control({ position: 'bottomright' });
 
-  legend.onAdd = function () {
-    const div = L.DomUtil.create('div', 'info legend');
-    div.style.backgroundColor = 'white';
-    div.style.padding = '10px';
-    div.style.borderRadius = '5px';
-    div.style.boxShadow = '0 0 15px rgba(0,0,0,0.2)';
-    div.style.fontFamily = 'system-ui';
-    div.style.fontSize = '12px';
-    div.style.lineHeight = '1.4';
-
-    div.innerHTML = `
-      <h4 style="margin: 0 0 8px 0; font-weight: bold; color: #000000;">Crime Risk Levels</h4>
-      <div style="display: flex; flex-direction: column; gap: 4px;">
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 16px; height: 16px; background: #dc2626; border-radius: 50%;"></div>
-          <span style="color: #000000;">High Risk (80-100%)</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 16px; height: 16px; background: #f97316; border-radius: 50%;"></div>
-          <span style="color: #000000;">Medium-High Risk (60-79%)</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 16px; height: 16px; background: #facc15; border-radius: 50%;"></div>
-          <span style="color: #000000;">Medium Risk (40-59%)</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <div style="width: 16px; height: 16px; background: #22c55e; border-radius: 50%;"></div>
-          <span style="color: #000000;">Low Risk (0-39%)</span>
-        </div>
-      </div>
-      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #e5e7eb; font-size: 11px; color: #000000;">
-        Circle size indicates crime intensity
-      </div>
-    `;
-
-    return div;
-  };
-
-  legend.addTo(map);
-}
