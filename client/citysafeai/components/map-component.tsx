@@ -131,6 +131,9 @@ export default function MapComponent({ activeLayer, source, destination, showRou
 
       // Add demo data for each layer
       setupEnhancedDemoLayers(L, layersRef.current)
+      
+      // Load approved public reports as alerts
+      loadApprovedReports(L, layersRef.current)
     }
 
     loadLeaflet()
@@ -144,7 +147,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     }
   }, [])
 
-  // Handle layer visibility
+  // Handle layer visibility and refresh approved reports
   useEffect(() => {
     if (!mapInstanceRef.current || !layersRef.current) return
 
@@ -155,9 +158,41 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       }
     })
 
+    // Recreate layers with fresh data
+    const L = (window as any).L
+    if (L) {
+      layersRef.current.alerts.clearLayers()
+      setupEnhancedDemoLayers(L, layersRef.current)
+      loadApprovedReports(L, layersRef.current)
+    }
+
     // Add active layer
     if (activeLayer && layersRef.current[activeLayer]) {
       layersRef.current[activeLayer].addTo(mapInstanceRef.current)
+    }
+  }, [activeLayer])
+
+  // Listen for localStorage changes to refresh approved reports
+  useEffect(() => {
+    const handleStorageChange = () => {
+      if (!mapInstanceRef.current || !layersRef.current || activeLayer !== 'alerts') return
+      
+      const L = (window as any).L
+      if (L) {
+        layersRef.current.alerts.clearLayers()
+        setupEnhancedDemoLayers(L, layersRef.current)
+        loadApprovedReports(L, layersRef.current)
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+    
+    // Also listen for custom event for same-tab updates
+    window.addEventListener('publicReportsUpdated', handleStorageChange)
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange)
+      window.removeEventListener('publicReportsUpdated', handleStorageChange)
     }
   }, [activeLayer])
 
@@ -489,6 +524,92 @@ function setupEnhancedDemoLayers(L: any, layers: any) {
       </div>
     `)
 
+    marker.addTo(layers.alerts)
+  })
+}
+
+function loadApprovedReports(L: any, layers: any) {
+  const reports = JSON.parse(localStorage.getItem("publicReports") || "[]")
+  const approvedReports = reports.filter((report: any) => report.status === "approved")
+  
+  approvedReports.forEach((report: any) => {
+    let lat, lng
+    
+    // Parse coordinates from location string
+    if (report.location.includes(',')) {
+      const coords = report.location.split(',')
+      lat = parseFloat(coords[0].trim())
+      lng = parseFloat(coords[1].trim())
+    } else {
+      // Default coordinates for landmark locations
+      const landmarks: { [key: string]: [number, number] } = {
+        "Marina Beach": [13.0478, 80.2838],
+        "T. Nagar": [13.0418, 80.2341],
+        "Anna Nagar": [13.0850, 80.2101],
+        "Velachery": [12.9816, 80.2209],
+        "Adyar": [13.0067, 80.2206],
+        "Mylapore": [13.0339, 80.2619],
+        "Guindy": [13.0067, 80.2206],
+        "Tambaram": [12.9249, 80.1000],
+        "Porur": [13.0381, 80.1564],
+        "OMR (IT Corridor)": [12.8406, 80.1534],
+        "GST Road": [12.9165, 80.1854],
+        "ECR (East Coast Road)": [12.7925, 80.2269]
+      }
+      const coords = landmarks[report.location] || [13.0827, 80.2707]
+      lat = coords[0]
+      lng = coords[1]
+    }
+    
+    const severityColors = {
+      Low: "#10b981",
+      Medium: "#f59e0b", 
+      High: "#dc2626",
+      Critical: "#dc2626"
+    }
+    
+    const marker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        className: "custom-alert-marker",
+        html: `
+          <div style="
+            background: ${severityColors[report.severity as keyof typeof severityColors]};
+            color: white;
+            border-radius: 50%;
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 14px;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          ">!</div>`,
+        iconSize: [32, 32]
+      })
+    })
+    
+    marker.bindPopup(`
+      <div style="font-family: system-ui; padding: 12px; min-width: 240px;">
+        <h3 style="margin: 0 0 8px 0; color: ${severityColors[report.severity as keyof typeof severityColors]}; font-weight: bold;">${report.type.replace('_', ' ').toUpperCase()}</h3>
+        <p style="margin: 0 0 8px 0; color: #374151;">${report.description}</p>
+        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px;"><strong>Location:</strong> ${report.location}</p>
+        <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px;"><strong>Reported by:</strong> ${report.reportedBy}</p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+          <span style="color: #6b7280; font-size: 12px;">${new Date(report.timestamp).toLocaleString()}</span>
+          <span style="
+            background: ${severityColors[report.severity as keyof typeof severityColors]};
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            text-transform: uppercase;
+          ">${report.severity}</span>
+        </div>
+      </div>
+    `)
+    
     marker.addTo(layers.alerts)
   })
 }

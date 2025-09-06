@@ -175,6 +175,65 @@ export default function DashboardPage() {
           />
         </div>
 
+        {/* Alerts List Panel */}
+        {activeLayer === "alerts" && (
+          <div className="absolute right-4 top-4 w-80 z-[1000] max-h-[70vh] overflow-y-auto">
+            <Card className="p-4">
+              <div className="space-y-4">
+                <h3 className="font-semibold">Active Alerts</h3>
+                <div className="space-y-2">
+                  {(() => {
+                    const approvedReports = publicReports.filter((r: any) => r.status === "approved")
+                    const demoAlerts = [
+                      { type: "High Crime Alert", location: "Mylapore", severity: "High", time: "2 mins ago" },
+                      { type: "Traffic Incident", location: "Guindy", severity: "Medium", time: "15 mins ago" },
+                      { type: "Emergency Response", location: "Anna Nagar", severity: "High", time: "5 mins ago" },
+                      { type: "Suspicious Activity", location: "Adyar", severity: "Low", time: "1 hour ago" },
+                      { type: "Public Safety", location: "Kilpauk", severity: "Medium", time: "30 mins ago" }
+                    ]
+                    const allAlerts = [...approvedReports.map((r: any) => ({
+                      type: r.type.replace('_', ' ').toUpperCase(),
+                      location: r.location.includes(',') ? `${parseFloat(r.location.split(',')[0]).toFixed(4)}, ${parseFloat(r.location.split(',')[1]).toFixed(4)}` : r.location,
+                      severity: r.severity,
+                      time: new Date(r.timestamp).toLocaleString(),
+                      isPublicReport: true
+                    })), ...demoAlerts]
+                    
+                    return allAlerts.map((alert, index) => (
+                      <Card key={index} className="p-3">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-start">
+                            <h4 className="font-medium text-sm">{alert.type}</h4>
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              alert.severity === 'High' || alert.severity === 'Critical' ? 'bg-red-100 text-red-800' :
+                              alert.severity === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-green-100 text-green-800'
+                            }`}>
+                              {alert.severity}
+                            </span>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            <strong>Location:</strong> {alert.location}
+                          </p>
+                          <div className="flex justify-between items-center">
+                            <span className="text-xs text-muted-foreground">{alert.time}</span>
+                            {alert.isPublicReport && (
+                              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                Public Report
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </Card>
+                    ))
+                  })()
+                  }
+                </div>
+              </div>
+            </Card>
+          </div>
+        )}
+
         {/* Public Reports Review Panel */}
         {activeLayer === "publicReports" && (
           <div className="absolute left-4 top-4 w-80 z-[1000]">
@@ -216,6 +275,7 @@ export default function DashboardPage() {
                                 )
                                 localStorage.setItem('publicReports', JSON.stringify(updatedReports))
                                 setPublicReports(updatedReports)
+                                window.dispatchEvent(new Event('publicReportsUpdated'))
                               }}
                             >
                               Approve
@@ -230,6 +290,7 @@ export default function DashboardPage() {
                                 )
                                 localStorage.setItem('publicReports', JSON.stringify(updatedReports))
                                 setPublicReports(updatedReports)
+                                window.dispatchEvent(new Event('publicReportsUpdated'))
                               }}
                             >
                               Decline
@@ -292,15 +353,17 @@ export default function DashboardPage() {
                 <span className="mr-2">🔥</span>
                 Heatmap
               </Button>
-              <Button
-                variant={activeLayer === "patrol" ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleLayer("patrol")}
-                className="justify-start"
-              >
-                <span className="mr-2">🚔</span>
-                Patrol
-              </Button>
+              {userRole === "police" && (
+                <Button
+                  variant={activeLayer === "patrol" ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleLayer("patrol")}
+                  className="justify-start"
+                >
+                  <span className="mr-2">🚔</span>
+                  Patrol
+                </Button>
+              )}
               <Button
                 variant={activeLayer === "saferoute" ? "default" : "outline"}
                 size="sm"
@@ -353,15 +416,17 @@ export default function DashboardPage() {
                     <span className="mr-2">🔥</span>
                     Heatmap
                   </Button>
-                  <Button
-                    variant={activeLayer === "patrol" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleLayer("patrol")}
-                    className="justify-start text-sm"
-                  >
-                    <span className="mr-2">🚔</span>
-                    Patrol
-                  </Button>
+                  {userRole === "police" && (
+                    <Button
+                      variant={activeLayer === "patrol" ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleLayer("patrol")}
+                      className="justify-start text-sm"
+                    >
+                      <span className="mr-2">🚔</span>
+                      Patrol
+                    </Button>
+                  )}
                   <Button
                     variant={activeLayer === "saferoute" ? "default" : "outline"}
                     size="sm"
