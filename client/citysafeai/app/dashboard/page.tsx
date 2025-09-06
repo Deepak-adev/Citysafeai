@@ -84,6 +84,9 @@ export default function DashboardPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </Button>
+            <Button variant="outline" size="sm" onClick={() => router.push("/profile")}>
+              Profile
+            </Button>
             <Button variant="outline" size="sm" onClick={handleLogout}>
               Logout
             </Button>
