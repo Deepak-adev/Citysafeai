@@ -131,6 +131,9 @@ export default function MapComponent({ activeLayer, source, destination, showRou
 
       // Add demo data for each layer
       setupEnhancedDemoLayers(L, layersRef.current)
+
+      // Add legend
+      addLegend(L, map)
     }
 
     loadLeaflet()
@@ -167,29 +170,127 @@ export default function MapComponent({ activeLayer, source, destination, showRou
 function setupEnhancedDemoLayers(L: any, layers: any) {
   // Heatmap layer - Enhanced red circular zones with crime intensity
   const crimeHotspots = [
-    { lat: 13.0827, lng: 80.2707, intensity: 0.9, area: "T. Nagar", crimes: 45 },
-    { lat: 13.0678, lng: 80.2785, intensity: 0.7, area: "Mylapore", crimes: 32 },
-    { lat: 13.0458, lng: 80.2209, intensity: 0.8, area: "Guindy", crimes: 38 },
-    { lat: 13.1067, lng: 80.2109, intensity: 0.6, area: "Anna Nagar", crimes: 28 },
-    { lat: 13.0582, lng: 80.2623, intensity: 0.5, area: "Adyar", crimes: 22 },
-    { lat: 13.1185, lng: 80.2574, intensity: 0.7, area: "Kilpauk", crimes: 31 },
-    { lat: 13.0389, lng: 80.2619, intensity: 0.6, area: "Velachery", crimes: 26 },
+    // Chennai High Risk Areas - Accurate Coordinates
+    { lat: 13.0405, lng: 80.2337, intensity: 0.95, area: "T. Nagar Main Road", crimes: 67 },
+    { lat: 13.0368, lng: 80.2676, intensity: 0.92, area: "Mylapore East", crimes: 58 },
+    { lat: 13.0064, lng: 80.2206, intensity: 0.88, area: "Guindy Railway Station", crimes: 52 },
+    { lat: 13.0850, lng: 80.2101, intensity: 0.85, area: "Anna Nagar West", crimes: 48 },
+    { lat: 13.0827, lng: 80.2442, intensity: 0.82, area: "Kilpauk Garden Road", crimes: 45 },
+    { lat: 13.0213, lng: 80.2231, intensity: 0.80, area: "Saidapet West", crimes: 42 },
+    { lat: 12.9758, lng: 80.2209, intensity: 0.78, area: "Velachery Main Road", crimes: 40 },
+    { lat: 13.0500, lng: 80.2121, intensity: 0.75, area: "Vadapalani Signal", crimes: 38 },
+    { lat: 13.0554, lng: 80.2586, intensity: 0.72, area: "Royapettah High Road", crimes: 36 },
+    { lat: 13.0067, lng: 80.2572, intensity: 0.70, area: "Adyar Bridge", crimes: 34 },
+
+    // Chennai Medium-High Risk Areas - Accurate Coordinates
+    { lat: 13.0694, lng: 80.2178, intensity: 0.68, area: "Aminjikarai Market", crimes: 32 },
+    { lat: 13.0298, lng: 80.2405, intensity: 0.65, area: "Nandanam Signal", crimes: 30 },
+    { lat: 13.0521, lng: 80.2210, intensity: 0.62, area: "Kodambakkam High Road", crimes: 28 },
+    { lat: 13.0813, lng: 80.2485, intensity: 0.60, area: "Purasaiwakkam West", crimes: 26 },
+    { lat: 13.1242, lng: 80.1947, intensity: 0.58, area: "Kolathur Junction", crimes: 24 },
+    { lat: 12.9972, lng: 80.2707, intensity: 0.55, area: "Besant Nagar Beach", crimes: 22 },
+    { lat: 12.9432, lng: 80.2417, intensity: 0.52, area: "Thiruvanmiyur Bus Stand", crimes: 20 },
+    { lat: 12.9249, lng: 80.1000, intensity: 0.50, area: "Tambaram East", crimes: 18 },
+    { lat: 13.0143, lng: 80.2094, intensity: 0.48, area: "Ekkatuthangal West", crimes: 16 },
+    { lat: 12.9480, lng: 80.2078, intensity: 0.45, area: "Pallikaranai Junction", crimes: 14 },
+
+    // Chennai Medium Risk Areas - Accurate Coordinates
+    { lat: 13.0421, lng: 80.2312, intensity: 0.42, area: "T. Nagar South", crimes: 12 },
+    { lat: 13.0321, lng: 80.2654, intensity: 0.40, area: "Mylapore West", crimes: 10 },
+    { lat: 13.0102, lng: 80.2234, intensity: 0.38, area: "Guindy East", crimes: 8 },
+    { lat: 13.0876, lng: 80.2134, intensity: 0.35, area: "Anna Nagar East", crimes: 6 },
+    { lat: 13.0798, lng: 80.2412, intensity: 0.32, area: "Kilpauk Medical College", crimes: 4 },
+    { lat: 13.0234, lng: 80.2256, intensity: 0.30, area: "Saidapet East", crimes: 3 },
+    { lat: 12.9778, lng: 80.2234, intensity: 0.28, area: "Velachery East", crimes: 2 },
+    { lat: 13.0512, lng: 80.2145, intensity: 0.25, area: "Vadapalani East", crimes: 1 },
+    { lat: 13.0534, lng: 80.2567, intensity: 0.22, area: "Royapettah West", crimes: 1 },
+    { lat: 13.0089, lng: 80.2598, intensity: 0.20, area: "Adyar East", crimes: 1 },
+
+    // Tamil Nadu District Areas - High Risk - Accurate Coordinates
+    { lat: 11.0168, lng: 76.9558, intensity: 0.85, area: "Coimbatore Gandhipuram", crimes: 55 },
+    { lat: 10.7905, lng: 78.7047, intensity: 0.82, area: "Tiruchirappalli Central", crimes: 50 },
+    { lat: 9.9252, lng: 78.1198, intensity: 0.80, area: "Madurai Meenakshi Temple", crimes: 48 },
+    { lat: 8.7642, lng: 78.1348, intensity: 0.78, area: "Tirunelveli Junction", crimes: 45 },
+    { lat: 12.9716, lng: 79.1587, intensity: 0.75, area: "Vellore CMC Hospital", crimes: 42 },
+    { lat: 11.6643, lng: 78.1460, intensity: 0.72, area: "Salem Junction", crimes: 40 },
+    { lat: 10.7867, lng: 79.1378, intensity: 0.70, area: "Thanjavur Big Temple", crimes: 38 },
+    { lat: 11.3410, lng: 77.7172, intensity: 0.68, area: "Erode Bus Stand", crimes: 35 },
+    { lat: 8.1833, lng: 77.4119, intensity: 0.65, area: "Nagercoil Town", crimes: 32 },
+    { lat: 13.3178, lng: 80.4265, intensity: 0.62, area: "Tiruvallur Junction", crimes: 30 },
+
+    // Tamil Nadu District Areas - Medium Risk - Accurate Coordinates
+    { lat: 12.8342, lng: 80.0605, intensity: 0.60, area: "Chengalpattu Railway", crimes: 28 },
+    { lat: 12.5186, lng: 78.2137, intensity: 0.58, area: "Krishnagiri Town", crimes: 26 },
+    { lat: 10.3673, lng: 77.9803, intensity: 0.55, area: "Dindigul Fort", crimes: 24 },
+    { lat: 9.4396, lng: 77.8028, intensity: 0.52, area: "Virudhunagar Market", crimes: 22 },
+    { lat: 8.0883, lng: 77.5385, intensity: 0.50, area: "Kanyakumari Beach", crimes: 20 },
+    { lat: 12.9202, lng: 79.1325, intensity: 0.48, area: "Ranipet Industrial", crimes: 18 },
+    { lat: 10.6112, lng: 79.8496, intensity: 0.45, area: "Nagapattinam Port", crimes: 16 },
+    { lat: 11.1085, lng: 79.6501, intensity: 0.42, area: "Cuddalore Beach", crimes: 14 },
+
+    // Tamil Nadu District Areas - Low Risk - Accurate Coordinates
+    { lat: 12.3072, lng: 78.4517, intensity: 0.35, area: "Dharmapuri Town", crimes: 8 },
+    { lat: 9.8433, lng: 78.4809, intensity: 0.32, area: "Sivaganga Temple", crimes: 6 },
+    { lat: 10.0743, lng: 78.7728, intensity: 0.30, area: "Pudukkottai Fort", crimes: 4 },
+    { lat: 11.9214, lng: 79.4850, intensity: 0.28, area: "Villupuram Junction", crimes: 3 },
+    { lat: 9.1705, lng: 78.1213, intensity: 0.25, area: "Ramanathapuram Coast", crimes: 2 },
+    { lat: 8.3177, lng: 77.1694, intensity: 0.22, area: "Kanniyakumari Temple", crimes: 1 },
+    { lat: 12.1197, lng: 79.0747, intensity: 0.20, area: "Tindivanam Market", crimes: 1 },
+    { lat: 10.7870, lng: 79.1315, intensity: 0.18, area: "Thanjavur Railway", crimes: 1 },
   ]
 
   crimeHotspots.forEach((hotspot) => {
+    // Calculate color based on intensity
+    const getColor = (intensity: number) => {
+      if (intensity >= 0.8) return "#dc2626" // High risk - Red
+      if (intensity >= 0.6) return "#f97316" // Medium-high risk - Orange
+      if (intensity >= 0.4) return "#facc15" // Medium risk - Yellow
+      return "#22c55e" // Low risk - Green
+    }
+
     const circle = L.circle([hotspot.lat, hotspot.lng], {
-      color: "#dc2626",
-      fillColor: "#ef4444",
-      fillOpacity: hotspot.intensity * 0.4,
-      radius: hotspot.intensity * 1500,
+      color: getColor(hotspot.intensity),
+      fillColor: getColor(hotspot.intensity),
+      fillOpacity: hotspot.intensity * 0.35,
+      radius: hotspot.intensity * 1200,
       weight: 2,
     })
 
     circle.bindPopup(`
-      <div style="font-family: system-ui; padding: 8px;">
-        <h3 style="margin: 0 0 8px 0; color: #dc2626; font-weight: bold;">${hotspot.area}</h3>
-        <p style="margin: 0; color: #374151;">Crime Reports: <strong>${hotspot.crimes}</strong></p>
-        <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 12px;">Risk Level: ${hotspot.intensity > 0.7 ? "High" : hotspot.intensity > 0.5 ? "Medium" : "Low"}</p>
+      <div style="font-family: system-ui; padding: 12px; min-width: 200px;">
+        <h3 style="margin: 0 0 8px 0; color: ${getColor(hotspot.intensity)}; font-weight: bold;">${hotspot.area}</h3>
+        <div style="
+          padding: 8px;
+          background: ${hotspot.intensity >= 0.8 ? '#fef2f2' : 
+                       hotspot.intensity >= 0.6 ? '#fff7ed' :
+                       hotspot.intensity >= 0.4 ? '#fefce8' :
+                       '#f0fdf4'};
+          border: 1px solid ${hotspot.intensity >= 0.8 ? '#fecaca' :
+                             hotspot.intensity >= 0.6 ? '#fed7aa' :
+                             hotspot.intensity >= 0.4 ? '#fef08a' :
+                             '#86efac'};
+          border-radius: 6px;
+          margin-bottom: 8px;
+        ">
+          <div style="color: #374151; margin-bottom: 4px;">
+            <strong>Crime Reports:</strong> ${hotspot.crimes}
+          </div>
+          <div style="color: #374151;">
+            <strong>Risk Level:</strong> 
+            <span style="
+              color: ${getColor(hotspot.intensity)};
+              font-weight: 500;
+            ">
+              ${hotspot.intensity >= 0.8 ? 'High Risk' :
+                hotspot.intensity >= 0.6 ? 'Medium-High Risk' :
+                hotspot.intensity >= 0.4 ? 'Medium Risk' :
+                'Low Risk'}
+            </span>
+          </div>
+        </div>
+        <p style="margin: 0; color: #6b7280; font-size: 12px;">
+          Updated: ${new Date().toLocaleDateString()}
+        </p>
       </div>
     `)
 
@@ -491,4 +592,48 @@ function setupEnhancedDemoLayers(L: any, layers: any) {
 
     marker.addTo(layers.alerts)
   })
+}
+
+function addLegend(L: any, map: any) {
+  const legend = L.control({ position: 'bottomright' });
+
+  legend.onAdd = function () {
+    const div = L.DomUtil.create('div', 'info legend');
+    div.style.backgroundColor = 'white';
+    div.style.padding = '10px';
+    div.style.borderRadius = '5px';
+    div.style.boxShadow = '0 0 15px rgba(0,0,0,0.2)';
+    div.style.fontFamily = 'system-ui';
+    div.style.fontSize = '12px';
+    div.style.lineHeight = '1.4';
+
+    div.innerHTML = `
+      <h4 style="margin: 0 0 8px 0; font-weight: bold; color: #374151;">Crime Risk Levels</h4>
+      <div style="display: flex; flex-direction: column; gap: 4px;">
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 16px; height: 16px; background: #dc2626; border-radius: 50%;"></div>
+          <span>High Risk (80-100%)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 16px; height: 16px; background: #f97316; border-radius: 50%;"></div>
+          <span>Medium-High Risk (60-79%)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 16px; height: 16px; background: #facc15; border-radius: 50%;"></div>
+          <span>Medium Risk (40-59%)</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <div style="width: 16px; height: 16px; background: #22c55e; border-radius: 50%;"></div>
+          <span>Low Risk (0-39%)</span>
+        </div>
+      </div>
+      <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #2d64d3ff; font-size: 11px; color: #6b7280;">
+        Circle size indicates crime intensity
+      </div>
+    `;
+
+    return div;
+  };
+
+  legend.addTo(map);
 }
