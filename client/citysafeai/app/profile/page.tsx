@@ -22,11 +22,23 @@ export default function ProfilePage() {
   const router = useRouter()
 
   useEffect(() => {
+    // Load user data
     const role = localStorage.getItem("userRole")
-    if (!role) {
+    const storedUsername = localStorage.getItem("username")
+    const storedPhone = localStorage.getItem("userPhone") || ""
+    const storedLocation = localStorage.getItem("userLocation")
+    const storedContacts = localStorage.getItem("emergencyContacts")
+
+    if (!role || !storedUsername) {
       router.push("/")
       return
     }
+
+    setUserRole(role)
+    setUsername(storedUsername)
+    setPhone(storedPhone)
+    if (storedLocation) setLocation(JSON.parse(storedLocation))
+    if (storedContacts) setEmergencyContacts(JSON.parse(storedContacts))
 
     setUserRole(role)
     setUsername(localStorage.getItem("username") || "")
