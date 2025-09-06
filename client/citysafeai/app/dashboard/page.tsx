@@ -383,6 +383,7 @@ export default function DashboardPage() {
                 {activeLayer === "alerts" && <span className="text-white text-lg">⚠️</span>}
                 {activeLayer === "publicReports" && <span className="text-white text-lg">📋</span>}
                 {activeLayer === "report" && <span className="text-white text-lg">📝</span>}
+                {activeLayer === "zones" && <span className="text-white text-lg">🗺️</span>}
               </div>
               <div>
                 <h3 className="font-bold text-slate-900">
@@ -392,6 +393,7 @@ export default function DashboardPage() {
                   {activeLayer === "alerts" && "Safety Alerts"}
                   {activeLayer === "publicReports" && "Report Management"}
                   {activeLayer === "report" && "Incident Reporting"}
+                  {activeLayer === "zones" && "Zone Management"}
                 </h3>
                 <p className="text-sm text-slate-600 font-medium">Active Feature</p>
               </div>
