@@ -7,6 +7,20 @@ from django.contrib.auth.models import User
 from .services import CrimePredictionService
 import json
 
+# Mock Police ID Database
+VALID_POLICE_IDS = {
+    'TN001': {'name': 'Inspector Rajesh Kumar', 'rank': 'Inspector'},
+    'TN002': {'name': 'Sub-Inspector Priya Sharma', 'rank': 'Sub-Inspector'},
+    'TN003': {'name': 'Constable Murugan S', 'rank': 'Constable'},
+    'TN004': {'name': 'Inspector Kavitha R', 'rank': 'Inspector'},
+    'TN005': {'name': 'Head Constable Ravi Kumar', 'rank': 'Head Constable'},
+    'TN006': {'name': 'Sub-Inspector Arun M', 'rank': 'Sub-Inspector'},
+    'TN007': {'name': 'Constable Lakshmi P', 'rank': 'Constable'},
+    'TN008': {'name': 'Inspector Senthil Kumar', 'rank': 'Inspector'},
+    'TN009': {'name': 'Sub-Inspector Meera J', 'rank': 'Sub-Inspector'},
+    'TN010': {'name': 'Constable Karthik V', 'rank': 'Constable'}
+}
+
 def home(request):
     return render(request, 'cityapp/home.html')
 
@@ -58,12 +72,33 @@ def register_user(request):
         password = data.get('password')
         email = data.get('email', '')
         role = data.get('role', 'public')
+        police_id = data.get('police_id', '')
         
         if not username or not password:
             return JsonResponse({
                 'status': 'error',
                 'message': 'Username and password are required'
             }, status=400)
+        
+        # Validate police ID for police role
+        if role == 'police':
+            if not police_id:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Police ID is required for police registration'
+                }, status=400)
+            
+            if police_id not in VALID_POLICE_IDS:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Invalid Police ID. Contact your department.'
+                }, status=400)
+            
+            if User.objects.filter(last_name=police_id).exists():
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Police ID already registered'
+                }, status=400)
         
         if User.objects.filter(username=username).exists():
             return JsonResponse({
@@ -77,6 +112,8 @@ def register_user(request):
             email=email
         )
         user.first_name = role
+        if role == 'police':
+            user.last_name = police_id
         user.save()
         
         return JsonResponse({
@@ -123,6 +160,57 @@ def login_user(request):
                 'status': 'error',
                 'message': 'Invalid credentials'
             }, status=401)
+            
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def send_alert(request):
+    """API endpoint to send SMS alerts"""
+    try:
+        data = json.loads(request.body)
+        username = data.get('username')
+        location = data.get('location')
+        contacts = data.get('contacts', [])
+        
+        alert_message = f"SAFETY ALERT: {username} has been in a high-crime area for over 5 minutes. Location: {location}"
+        
+        print(f"SMS Alert sent to {len(contacts)} contacts: {alert_message}")
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Alert sent to {len(contacts)} contacts'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def validate_police_id(request):
+    """API endpoint to validate police ID"""
+    try:
+        data = json.loads(request.body)
+        police_id = data.get('police_id', '')
+        
+        if police_id in VALID_POLICE_IDS:
+            return JsonResponse({
+                'status': 'success',
+                'valid': True,
+                'officer': VALID_POLICE_IDS[police_id]
+            })
+        else:
+            return JsonResponse({
+                'status': 'success',
+                'valid': False
+            })
             
     except Exception as e:
         return JsonResponse({

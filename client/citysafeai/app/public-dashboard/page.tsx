@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import LocationTracker from "@/components/location-tracker"
+import HotspotMonitor from "@/components/hotspot-monitor"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { 
@@ -26,6 +28,8 @@ export default function PublicDashboardPage() {
   const [username, setUsername] = useState<string>("")
   const [userLocation, setUserLocation] = useState<string>("")
   const [isLoading, setIsLoading] = useState<boolean>(false)
+  const [currentLat, setCurrentLat] = useState<number>(0)
+  const [currentLng, setCurrentLng] = useState<number>(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -75,6 +79,11 @@ export default function PublicDashboardPage() {
     setTimeout(() => {
       router.push("/dashboard")
     }, 100)
+  }
+
+  const handleLocationUpdate = (lat: number, lng: number) => {
+    setCurrentLat(lat)
+    setCurrentLng(lng)
   }
 
   const features = [
@@ -269,6 +278,16 @@ export default function PublicDashboardPage() {
           </Card>
         </div>
       </main>
+      
+      {/* Location Tracking Components */}
+      <LocationTracker onLocationUpdate={handleLocationUpdate} />
+      {currentLat !== 0 && currentLng !== 0 && (
+        <HotspotMonitor 
+          userLat={currentLat} 
+          userLng={currentLng} 
+          username={username}
+        />
+      )}
     </div>
   )
 }

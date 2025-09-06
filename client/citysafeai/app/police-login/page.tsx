@@ -15,6 +15,7 @@ import Navbar from "@/components/ui/navbar"
 export default function PoliceLoginPage() {
   const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
+  const [policeId, setPoliceId] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [scrollY, setScrollY] = useState(0)
   const router = useRouter()
@@ -35,6 +36,7 @@ export default function PoliceLoginPage() {
     // Store role in localStorage and redirect
     localStorage.setItem("userRole", "police")
     localStorage.setItem("username", username)
+    localStorage.setItem("policeId", policeId)
 
     router.push("/police-dashboard")
     setIsLoading(false)
@@ -117,6 +119,20 @@ export default function PoliceLoginPage() {
             <CardContent>
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
+                  <Label htmlFor="policeId" className="text-sm font-semibold text-slate-700">
+                    Police ID
+                  </Label>
+                  <Input
+                    id="policeId"
+                    type="text"
+                    placeholder="Enter your Police ID (e.g., TN001)"
+                    value={policeId}
+                    onChange={(e) => setPoliceId(e.target.value)}
+                    required
+                    className="h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-300"
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="username" className="text-sm font-semibold text-slate-700">
                     Username
                   </Label>
@@ -158,8 +174,14 @@ export default function PoliceLoginPage() {
             <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-emerald-50/0 group-hover:from-blue-50/30 group-hover:to-emerald-50/30 rounded-xl transition-all duration-500 pointer-events-none"></div>
           </Card>
 
-          <div className="text-center text-sm text-slate-500 font-medium px-4">
+          <div className="text-center text-sm text-slate-500 font-medium px-4 space-y-2">
             <p>This is a secure law enforcement system. Unauthorized access is prohibited.</p>
+            <p>
+              Need an account?{" "}
+              <Link href="/police-register" className="text-blue-600 hover:underline font-semibold">
+                Register here
+              </Link>
+            </p>
           </div>
         </div>
       </div>
