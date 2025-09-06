@@ -127,6 +127,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         patrol: L.layerGroup(),
         saferoute: L.layerGroup(),
         alerts: L.layerGroup(),
+        zones: L.layerGroup(),
       }
 
       // Add demo data for each layer
@@ -599,6 +600,107 @@ async function setupEnhancedDemoLayers(L: any, layers: any) {
     `)
 
     marker.addTo(layers.alerts)
+  })
+
+  // Zones layer - Police jurisdiction zones with boundaries
+  const zonesData = [
+    {
+      name: "Zone 1 - Central Chennai",
+      coordinates: [
+        [13.0827, 80.2707],
+        [13.0756, 80.2834],
+        [13.0689, 80.2878],
+        [13.0623, 80.2912],
+        [13.0582, 80.2823],
+        [13.0678, 80.2785],
+        [13.0827, 80.2707]
+      ],
+      officer: "Inspector Kumar",
+      stations: 3,
+      population: "~250,000",
+      crimeRate: "Medium"
+    },
+    {
+      name: "Zone 2 - North Chennai", 
+      coordinates: [
+        [13.1067, 80.2109],
+        [13.1185, 80.2574],
+        [13.1067, 80.2809],
+        [13.0950, 80.2650],
+        [13.0890, 80.2200],
+        [13.1067, 80.2109]
+      ],
+      officer: "Inspector Priya",
+      stations: 2,
+      population: "~180,000",
+      crimeRate: "Low"
+    },
+    {
+      name: "Zone 3 - South Chennai",
+      coordinates: [
+        [13.0458, 80.2209],
+        [13.0389, 80.2619],
+        [13.0200, 80.2500],
+        [13.0100, 80.2200],
+        [13.0300, 80.2100],
+        [13.0458, 80.2209]
+      ],
+      officer: "Inspector Raj",
+      stations: 4,
+      population: "~320,000",
+      crimeRate: "High"
+    }
+  ]
+
+  zonesData.forEach((zone, index) => {
+    const zoneColors = ["#3b82f6", "#10b981", "#f59e0b"]
+    const color = zoneColors[index % zoneColors.length]
+    
+    const polygon = L.polygon(zone.coordinates, {
+      color: color,
+      fillColor: color,
+      fillOpacity: 0.1,
+      weight: 3,
+      opacity: 0.8,
+      dashArray: "5, 5"
+    })
+
+    polygon.bindPopup(`
+      <div style="font-family: system-ui; padding: 12px; min-width: 220px;">
+        <h3 style="margin: 0 0 8px 0; color: ${color}; font-weight: bold;">${zone.name}</h3>
+        <div style="
+          padding: 8px;
+          background: ${color}15;
+          border: 1px solid ${color}40;
+          border-radius: 6px;
+          margin-bottom: 8px;
+        ">
+          <div style="color: #374151; margin-bottom: 4px;">
+            <strong>Officer in Charge:</strong> ${zone.officer}
+          </div>
+          <div style="color: #374151; margin-bottom: 4px;">
+            <strong>Police Stations:</strong> ${zone.stations}
+          </div>
+          <div style="color: #374151; margin-bottom: 4px;">
+            <strong>Population:</strong> ${zone.population}
+          </div>
+          <div style="color: #374151;">
+            <strong>Crime Rate:</strong> 
+            <span style="
+              color: ${zone.crimeRate === 'High' ? '#dc2626' : zone.crimeRate === 'Medium' ? '#f59e0b' : '#10b981'};
+              font-weight: 500;
+            ">
+              ${zone.crimeRate}
+            </span>
+          </div>
+        </div>
+        <p style="margin: 0; color: #6b7280; font-size: 12px;">
+          Jurisdiction boundary updated: ${new Date().toLocaleDateString()}
+        </p>
+      </div>
+    `)
+
+    polygon.addTo(layers.zones)
   })
 }
 

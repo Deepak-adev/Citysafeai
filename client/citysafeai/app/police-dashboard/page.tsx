@@ -126,6 +126,16 @@ export default function PoliceDashboardPage() {
       bgColor: "bg-purple-50",
       borderColor: "border-purple-200",
       hoverColor: "hover:from-purple-700 hover:to-purple-900"
+    },
+    {
+      id: "zones",
+      title: "Zone Management",
+      description: "Police jurisdiction zones and boundary management",
+      icon: Map,
+      color: "from-indigo-600 to-indigo-800",
+      bgColor: "bg-indigo-50",
+      borderColor: "border-indigo-200",
+      hoverColor: "hover:from-indigo-700 hover:to-indigo-900"
     }
   ]
 
