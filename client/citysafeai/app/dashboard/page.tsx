@@ -33,7 +33,6 @@ export default function DashboardPage() {
   const [userRole, setUserRole] = useState<string>("")
   const [username, setUsername] = useState<string>("")
   const [activeLayer, setActiveLayer] = useState<string>("heatmap") // Set default layer to heatmap
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [source, setSource] = useState<string>("")
   const [destination, setDestination] = useState<string>("")
   const [showRoute, setShowRoute] = useState(false)
@@ -59,7 +58,7 @@ export default function DashboardPage() {
     // Auto-select feature if coming from feature dashboard
     if (selectedFeature) {
       setActiveLayer(selectedFeature)
-      localStorage.removeItem("selectedFeature")
+      // Don't remove selectedFeature immediately - let it persist
     } else {
       // If no feature selected, redirect to appropriate dashboard
       if (storedRole === "public") {
@@ -75,6 +74,18 @@ export default function DashboardPage() {
     const reports = JSON.parse(localStorage.getItem("publicReports") || "[]")
     setPublicReports(reports)
   }, [isReportModalOpen]) // Reload reports when dialog state changes
+
+  // Clean up selectedFeature after component is fully mounted
+  useEffect(() => {
+    const selectedFeature = localStorage.getItem("selectedFeature")
+    if (selectedFeature && activeLayer === selectedFeature) {
+      // Small delay to ensure the map is loaded
+      const timer = setTimeout(() => {
+        localStorage.removeItem("selectedFeature")
+      }, 1000)
+      return () => clearTimeout(timer)
+    }
+  }, [activeLayer])
 
   const handleRouteSearch = () => {
     if (source && destination) {
@@ -102,10 +113,16 @@ export default function DashboardPage() {
     router.push("/")
   }
 
-  const toggleLayer = (layer: string) => {
-    setActiveLayer(activeLayer === layer ? "" : layer)
-    setIsMobileMenuOpen(false)
+  const handleExitFeature = () => {
+    // Clear the selected feature and redirect back to appropriate dashboard
+    localStorage.removeItem("selectedFeature")
+    if (userRole === "public") {
+      router.push("/public-dashboard")
+    } else if (userRole === "police") {
+      router.push("/police-dashboard")
+    }
   }
+
 
   if (!userRole) {
     return (
@@ -127,19 +144,13 @@ export default function DashboardPage() {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => {
-                if (userRole === "public") {
-                  router.push("/public-dashboard")
-                } else if (userRole === "police") {
-                  router.push("/police-dashboard")
-                }
-              }}
-              className="flex items-center space-x-2"
+              onClick={handleExitFeature}
+              className="flex items-center space-x-2 border-slate-300 hover:border-slate-400 hover:bg-slate-50"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              <span>Back to Dashboard</span>
+              <span className="font-medium">Exit Feature</span>
             </Button>
             <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground truncate">
               {activeLayer.charAt(0).toUpperCase() + activeLayer.slice(1)} – {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
@@ -147,16 +158,6 @@ export default function DashboardPage() {
             <div className="hidden sm:block text-sm text-muted-foreground">Welcome, {username}</div>
           </div>
           <div className="flex items-center space-x-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="md:hidden bg-transparent"
-              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </Button>
             {userRole === "public" && (
               <Dialog modal={true} open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
                 <DialogTrigger asChild>
@@ -248,7 +249,7 @@ export default function DashboardPage() {
                           </p>
                           <div className="flex justify-between items-center">
                             <span className="text-xs text-muted-foreground">{alert.time}</span>
-                            {alert.isPublicReport && (
+                            {'isPublicReport' in alert && alert.isPublicReport && (
                               <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                                 Public Report
                               </span>
@@ -371,166 +372,87 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {/* Desktop Version */}
-        <div className="hidden md:block absolute top-4 right-4 z-[1000] space-y-2">
-          <Card className="p-2">
-            <div className="flex flex-col space-y-2">
-              <Button
-                variant={activeLayer === "heatmap" ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleLayer("heatmap")}
-                className="justify-start"
-              >
-                <span className="mr-2">🔥</span>
-                Heatmap
-              </Button>
-              {userRole === "police" && (
-                <Button
-                  variant={activeLayer === "patrol" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleLayer("patrol")}
-                  className="justify-start"
-                >
-                  <span className="mr-2">🚔</span>
-                  Patrol
-                </Button>
-              )}
-              <Button
-                variant={activeLayer === "saferoute" ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleLayer("saferoute")}
-                className="justify-start"
-              >
-                <span className="mr-2">🛡️</span>
-                Safe Route
-              </Button>
-              <Button
-                variant={activeLayer === "alerts" ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleLayer("alerts")}
-                className="justify-start"
-              >
-                <span className="mr-2">⚠️</span>
-                Alerts
-              </Button>
-              {userRole === "police" && (
-                <Button
-                  variant={activeLayer === "publicReports" ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleLayer("publicReports")}
-                  className="justify-start"
-                >
-                  <span className="mr-2">📋</span>
-                  Public Reports
-                  {publicReports.filter(r => r.status === "pending").length > 0 && (
-                    <span className="ml-2 bg-red-500 text-white rounded-full px-2 py-0.5 text-xs">
-                      {publicReports.filter(r => r.status === "pending").length}
-                    </span>
-                  )}
-                </Button>
-              )}
+        {/* Active Feature Display - Desktop Version */}
+        <div className="hidden md:block absolute top-4 right-4 z-[1000]">
+          <Card className="p-4 bg-white/90 backdrop-blur-sm border-slate-200/50 shadow-lg">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg">
+                {activeLayer === "heatmap" && <span className="text-white text-lg">🔥</span>}
+                {activeLayer === "patrol" && <span className="text-white text-lg">🚔</span>}
+                {activeLayer === "saferoute" && <span className="text-white text-lg">🛡️</span>}
+                {activeLayer === "alerts" && <span className="text-white text-lg">⚠️</span>}
+                {activeLayer === "publicReports" && <span className="text-white text-lg">📋</span>}
+                {activeLayer === "report" && <span className="text-white text-lg">📝</span>}
+              </div>
+              <div>
+                <h3 className="font-bold text-slate-900">
+                  {activeLayer === "heatmap" && "Crime Analytics"}
+                  {activeLayer === "patrol" && "Patrol Management"}
+                  {activeLayer === "saferoute" && "Route Planning"}
+                  {activeLayer === "alerts" && "Safety Alerts"}
+                  {activeLayer === "publicReports" && "Report Management"}
+                  {activeLayer === "report" && "Incident Reporting"}
+                </h3>
+                <p className="text-sm text-slate-600 font-medium">Active Feature</p>
+              </div>
             </div>
           </Card>
         </div>
 
+        {/* Active Feature Display - Mobile Version */}
         <div className="md:hidden">
-          {isMobileMenuOpen && (
-            <div className="absolute top-4 right-4 z-[1000]">
-              <Card className="p-2">
-                <div className="flex flex-col space-y-2 min-w-[140px]">
-                  <Button
-                    variant={activeLayer === "heatmap" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleLayer("heatmap")}
-                    className="justify-start text-sm"
-                  >
-                    <span className="mr-2">🔥</span>
-                    Heatmap
-                  </Button>
-                  {userRole === "police" && (
-                    <Button
-                      variant={activeLayer === "patrol" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleLayer("patrol")}
-                      className="justify-start text-sm"
-                    >
-                      <span className="mr-2">🚔</span>
-                      Patrol
-                    </Button>
-                  )}
-                  <Button
-                    variant={activeLayer === "saferoute" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleLayer("saferoute")}
-                    className="justify-start text-sm"
-                  >
-                    <span className="mr-2">🛡️</span>
-                    Safe Route
-                  </Button>
-                  <Button
-                    variant={activeLayer === "alerts" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => toggleLayer("alerts")}
-                    className="justify-start text-sm"
-                  >
-                    <span className="mr-2">⚠️</span>
-                    Alerts
-                  </Button>
-                  {userRole === "police" && (
-                    <Button
-                      variant={activeLayer === "publicReports" ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => toggleLayer("publicReports")}
-                      className="justify-start text-sm"
-                    >
-                      <span className="mr-2">📋</span>
-                      Public Reports
-                      {publicReports.filter(r => r.status === "pending").length > 0 && (
-                        <span className="ml-2 bg-red-500 text-white rounded-full px-2 py-0.5 text-xs">
-                          {publicReports.filter(r => r.status === "pending").length}
-                        </span>
-                      )}
-                    </Button>
-                  )}
-                  {userRole === "public" && (
-                    <Dialog modal={true} open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
-                      <DialogTrigger asChild>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          className="justify-start bg-red-500 hover:bg-red-600 text-sm"
-                        >
-                          <span className="mr-2">🚨</span>
-                          Report Incident
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="bg-background border shadow-lg max-w-3xl max-h-[90vh] overflow-y-auto z-[9999]">
-                        <DialogHeader>
-                          <DialogTitle>Report an Incident</DialogTitle>
-                          <DialogDescription>
-                            Please provide details about the incident. You can add photos, videos, and supporting documents.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <IncidentReportForm onClose={() => setIsReportModalOpen(false)} />
-                      </DialogContent>
-                    </Dialog>
-                  )}
+          <div className="absolute top-4 right-4 z-[1000]">
+            <Card className="p-3 bg-white/90 backdrop-blur-sm border-slate-200/50 shadow-lg">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-blue-800 rounded-lg flex items-center justify-center shadow-lg">
+                  {activeLayer === "heatmap" && <span className="text-white text-sm">🔥</span>}
+                  {activeLayer === "patrol" && <span className="text-white text-sm">🚔</span>}
+                  {activeLayer === "saferoute" && <span className="text-white text-sm">🛡️</span>}
+                  {activeLayer === "alerts" && <span className="text-white text-sm">⚠️</span>}
+                  {activeLayer === "publicReports" && <span className="text-white text-sm">📋</span>}
+                  {activeLayer === "report" && <span className="text-white text-sm">📝</span>}
                 </div>
-              </Card>
-            </div>
-          )}
+                <div>
+                  <h4 className="font-bold text-slate-900 text-sm">
+                    {activeLayer === "heatmap" && "Crime Analytics"}
+                    {activeLayer === "patrol" && "Patrol Management"}
+                    {activeLayer === "saferoute" && "Route Planning"}
+                    {activeLayer === "alerts" && "Safety Alerts"}
+                    {activeLayer === "publicReports" && "Report Management"}
+                    {activeLayer === "report" && "Incident Reporting"}
+                  </h4>
+                  <p className="text-xs text-slate-600 font-medium">Active</p>
+                </div>
+              </div>
+            </Card>
+          </div>
+        </div>
+
+        {/* Floating Exit Button */}
+        <div className="absolute top-4 left-4 z-[1000]">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExitFeature}
+            className="bg-white/90 backdrop-blur-sm border-slate-300 hover:border-slate-400 hover:bg-white shadow-lg"
+          >
+            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            Exit
+          </Button>
         </div>
 
         <div className="absolute bottom-4 left-2 sm:left-4 right-2 sm:right-auto z-[1000]">
-          <Card className="p-2 sm:p-3">
+          <Card className="p-2 sm:p-3 bg-white/90 backdrop-blur-sm border-slate-200/50">
             <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 space-y-2 sm:space-y-0 text-xs sm:text-sm">
               <div className="flex items-center space-x-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0"></div>
-                <span className="text-muted-foreground">System Online</span>
+                <span className="text-muted-foreground font-medium">System Online</span>
               </div>
-              <div className="text-muted-foreground hidden sm:block">Chennai Crime Prevention Center</div>
+              <div className="text-muted-foreground hidden sm:block font-medium">Chennai Crime Prevention Center</div>
               {activeLayer && (
-                <div className="text-primary font-medium">
+                <div className="text-primary font-semibold">
                   {activeLayer.charAt(0).toUpperCase() + activeLayer.slice(1)} Active
                 </div>
               )}

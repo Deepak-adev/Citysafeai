@@ -16,12 +16,18 @@ import {
   Car,
   ClipboardList,
   TrendingUp,
-  Clock
+  Clock,
+  BarChart3,
+  Route,
+  Bell,
+  Plus,
+  Badge
 } from "lucide-react"
 
 export default function PoliceDashboardPage() {
   const [username, setUsername] = useState<string>("")
   const [publicReports, setPublicReports] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState<boolean>(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -41,6 +47,13 @@ export default function PoliceDashboardPage() {
     setPublicReports(reports)
   }, [router])
 
+  // Reset loading state when component unmounts or when coming back
+  useEffect(() => {
+    return () => {
+      setIsLoading(false)
+    }
+  }, [])
+
   const handleLogout = () => {
     localStorage.removeItem("userRole")
     localStorage.removeItem("username")
@@ -48,57 +61,71 @@ export default function PoliceDashboardPage() {
   }
 
   const handleFeatureClick = (feature: string) => {
+    // Prevent multiple clicks
+    if (isLoading) return
+    
+    setIsLoading(true)
+    
     // Store the selected feature and redirect to the main dashboard
     localStorage.setItem("selectedFeature", feature)
-    router.push("/dashboard")
+    
+    // Use setTimeout to ensure the state is set before navigation
+    setTimeout(() => {
+      router.push("/dashboard")
+    }, 100)
   }
 
   const features = [
     {
       id: "heatmap",
-      title: "Crime Heatmap",
-      description: "View real-time crime statistics and patterns",
-      icon: Map,
-      color: "from-red-500 to-orange-500",
-      bgColor: "bg-red-50",
-      borderColor: "border-red-200"
+      title: "Crime Analytics",
+      description: "Real-time crime statistics and pattern analysis",
+      icon: BarChart3,
+      color: "from-slate-700 to-slate-900",
+      bgColor: "bg-slate-50",
+      borderColor: "border-slate-200",
+      hoverColor: "hover:from-slate-800 hover:to-slate-900"
     },
     {
       id: "patrol",
       title: "Patrol Management",
-      description: "Manage patrol routes and officer assignments",
+      description: "Advanced patrol route optimization and tracking",
       icon: Car,
-      color: "from-blue-500 to-indigo-500",
+      color: "from-blue-600 to-blue-800",
       bgColor: "bg-blue-50",
-      borderColor: "border-blue-200"
+      borderColor: "border-blue-200",
+      hoverColor: "hover:from-blue-700 hover:to-blue-900"
     },
     {
       id: "publicReports",
-      title: "Public Reports",
-      description: "Review and manage citizen incident reports",
+      title: "Report Management",
+      description: "Review and process citizen incident reports",
       icon: ClipboardList,
-      color: "from-green-500 to-emerald-500",
-      bgColor: "bg-green-50",
-      borderColor: "border-green-200",
+      color: "from-emerald-600 to-emerald-800",
+      bgColor: "bg-emerald-50",
+      borderColor: "border-emerald-200",
+      hoverColor: "hover:from-emerald-700 hover:to-emerald-900",
       badge: publicReports.filter(r => r.status === "pending").length
     },
     {
       id: "alerts",
-      title: "Active Alerts",
-      description: "Monitor active safety alerts and incidents",
-      icon: AlertTriangle,
-      color: "from-yellow-500 to-amber-500",
-      bgColor: "bg-yellow-50",
-      borderColor: "border-yellow-200"
+      title: "Alert Center",
+      description: "Monitor and manage active safety alerts",
+      icon: Bell,
+      color: "from-amber-600 to-amber-800",
+      bgColor: "bg-amber-50",
+      borderColor: "border-amber-200",
+      hoverColor: "hover:from-amber-700 hover:to-amber-900"
     },
     {
       id: "saferoute",
-      title: "Route Analysis",
-      description: "Analyze safe routes and traffic patterns",
-      icon: TrendingUp,
-      color: "from-purple-500 to-violet-500",
+      title: "Route Intelligence",
+      description: "AI-powered route analysis and optimization",
+      icon: Route,
+      color: "from-purple-600 to-purple-800",
       bgColor: "bg-purple-50",
-      borderColor: "border-purple-200"
+      borderColor: "border-purple-200",
+      hoverColor: "hover:from-purple-700 hover:to-purple-900"
     }
   ]
 
@@ -106,35 +133,37 @@ export default function PoliceDashboardPage() {
   const approvedReports = publicReports.filter(r => r.status === "approved").length
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-slate-100">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 shadow-sm">
+      <header className="bg-white/80 backdrop-blur-sm border-b border-slate-200/50 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Shield className="w-8 h-8 text-blue-600" />
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-800 rounded-xl flex items-center justify-center shadow-lg">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
                 <div>
                   <h1 className="text-xl font-bold text-slate-900">CitySafe AI</h1>
-                  <p className="text-sm text-slate-600">Police Dashboard</p>
+                  <p className="text-sm text-slate-600 font-medium">Law Enforcement Portal</p>
                 </div>
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
               <div className="hidden sm:block text-right">
-                <p className="text-sm font-medium text-slate-900">Officer {username}</p>
-                <p className="text-xs text-slate-500">Law Enforcement Portal</p>
+                <p className="text-sm font-semibold text-slate-900">Officer {username}</p>
+                <p className="text-xs text-slate-500 font-medium">Authorized Personnel</p>
               </div>
               <Link href="/profile">
-                <Button variant="outline" size="sm" className="flex items-center space-x-2">
+                <Button variant="outline" size="sm" className="flex items-center space-x-2 border-slate-300 hover:border-slate-400 hover:bg-slate-50">
                   <User className="w-4 h-4" />
-                  <span>Profile</span>
+                  <span className="font-medium">Profile</span>
                 </Button>
               </Link>
-              <Button variant="outline" size="sm" onClick={handleLogout} className="flex items-center space-x-2">
+              <Button variant="outline" size="sm" onClick={handleLogout} className="flex items-center space-x-2 border-slate-300 hover:border-red-400 hover:bg-red-50 hover:text-red-700">
                 <LogOut className="w-4 h-4" />
-                <span>Logout</span>
+                <span className="font-medium">Logout</span>
               </Button>
             </div>
           </div>
@@ -216,7 +245,6 @@ export default function PoliceDashboardPage() {
               <Card 
                 key={feature.id}
                 className={`${feature.bgColor} ${feature.borderColor} hover:shadow-lg transition-all duration-300 cursor-pointer group hover:scale-105 relative`}
-                onClick={() => handleFeatureClick(feature.id)}
               >
                 {feature.badge && feature.badge > 0 && (
                   <div className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center text-xs font-bold">
@@ -241,12 +269,10 @@ export default function PoliceDashboardPage() {
                   </CardDescription>
                   <Button 
                     className={`w-full bg-gradient-to-r ${feature.color} hover:opacity-90 text-white border-0`}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleFeatureClick(feature.id)
-                    }}
+                    onClick={() => handleFeatureClick(feature.id)}
+                    disabled={isLoading}
                   >
-                    Access Tool
+                    {isLoading ? "Loading..." : "Access Tool"}
                   </Button>
                 </CardContent>
               </Card>
