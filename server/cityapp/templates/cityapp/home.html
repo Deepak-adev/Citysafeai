@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CitySafe AI</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -27,6 +28,12 @@
             color: #666;
             line-height: 1.6;
         }
+        #map {
+            height: 500px;
+            width: 100%;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
@@ -36,12 +43,57 @@
         <p>You can now start building your CitySafe AI features.</p>
         
         <div style="margin-top: 30px;">
-            <h2>Crime Prediction API</h2>
-            <button onclick="getCrimePredictions()" style="padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 5px; cursor: pointer;">Get Crime Predictions</button>
-            <div id="results" style="margin-top: 20px; max-height: 400px; overflow-y: auto; background: #f9f9f9; padding: 15px; border-radius: 5px;"></div>
+            <h2>Crime Prediction Map</h2>
+            <button onclick="getCrimePredictions()" style="padding: 10px 20px; background: #007cba; color: white; border: none; border-radius: 5px; cursor: pointer;">Load Crime Predictions</button>
+            <div id="map"></div>
+            <div id="results" style="margin-top: 20px; max-height: 200px; overflow-y: auto; background: #f9f9f9; padding: 15px; border-radius: 5px;"></div>
         </div>
     </div>
     
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        let map;
+        let markers = [];
+        
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([13.0827, 80.2707], 11);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+        
+        // Clear existing markers
+        function clearMarkers() {
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+        }
+        
+        // Add markers to map
+        function addMarkersToMap(coordinates) {
+            clearMarkers();
+            
+            coordinates.forEach((coord, index) => {
+                const color = coord.risk_level === 'high' ? 'red' : 
+                             coord.risk_level === 'medium' ? 'orange' : 'yellow';
+                
+                const marker = L.circleMarker([coord.lat, coord.lng], {
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.7,
+                    radius: 5
+                }).addTo(map);
+                
+                marker.bindPopup(`Risk: ${coord.risk_level}<br>Lat: ${coord.lat}<br>Lng: ${coord.lng}`);
+                markers.push(marker);
+            });
+        }
+        
+        // Initialize map on page load
+        window.onload = function() {
+            initMap();
+        };
+    </script>
     <script>
         async function getCrimePredictions() {
             const resultsDiv = document.getElementById('results');
@@ -52,17 +104,14 @@
                 const data = await response.json();
                 
                 if (data.status === 'success') {
+                    // Add markers to map
+                    addMarkersToMap(data.coordinates);
+                    
+                    // Update results display
                     let html = `<h3>Crime Predictions for ${data.city}</h3>`;
-                    html += `<p>Total coordinates: ${data.total_coordinates}</p>`;
-                    html += '<div style="max-height: 300px; overflow-y: auto;">';
+                    html += `<p>Total coordinates: ${data.total_coordinates} (displayed on map above)</p>`;
+                    html += `<p>Legend: <span style="color: red;">● High Risk</span> | <span style="color: orange;">● Medium Risk</span> | <span style="color: #cccc00;">● Low Risk</span></p>`;
                     
-                    data.coordinates.forEach((coord, index) => {
-                        html += `<div style="margin: 5px 0; padding: 5px; background: white; border-radius: 3px;">`;
-                        html += `${index + 1}. Lat: ${coord.lat}, Lng: ${coord.lng}, Risk: ${coord.risk_level}`;
-                        html += '</div>';
-                    });
-                    
-                    html += '</div>';
                     resultsDiv.innerHTML = html;
                 } else {
                     resultsDiv.innerHTML = `<p style="color: red;">Error: ${data.message}</p>`;
