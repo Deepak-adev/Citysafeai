@@ -56,10 +56,17 @@ export default function DashboardPage() {
     setUserRole(storedRole)
     setUsername(storedUsername)
     
-    // Auto-select feature if coming from homepage
+    // Auto-select feature if coming from feature dashboard
     if (selectedFeature) {
       setActiveLayer(selectedFeature)
       localStorage.removeItem("selectedFeature")
+    } else {
+      // If no feature selected, redirect to appropriate dashboard
+      if (storedRole === "public") {
+        router.push("/public-dashboard")
+      } else if (storedRole === "police") {
+        router.push("/police-dashboard")
+      }
     }
   }, [router])
 
@@ -117,8 +124,25 @@ export default function DashboardPage() {
       <header className="bg-card border-b border-border">
         <div className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4">
           <div className="flex items-center space-x-2 sm:space-x-4 min-w-0">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (userRole === "public") {
+                  router.push("/public-dashboard")
+                } else if (userRole === "police") {
+                  router.push("/police-dashboard")
+                }
+              }}
+              className="flex items-center space-x-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              <span>Back to Dashboard</span>
+            </Button>
             <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground truncate">
-              Dashboard – {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
+              {activeLayer.charAt(0).toUpperCase() + activeLayer.slice(1)} – {userRole.charAt(0).toUpperCase() + userRole.slice(1)}
             </h1>
             <div className="hidden sm:block text-sm text-muted-foreground">Welcome, {username}</div>
           </div>
