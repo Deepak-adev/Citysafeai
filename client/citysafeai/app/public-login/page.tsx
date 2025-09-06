@@ -108,7 +108,7 @@ export default function PublicLoginPage() {
       localStorage.setItem("emergencyContacts", JSON.stringify(emergencyContacts.filter(c => c.name && c.phone)))
     }
     
-    router.push("/dashboard")
+    router.push("/public-dashboard")
     setIsLoading(false)
   }
 

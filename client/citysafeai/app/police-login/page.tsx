@@ -36,7 +36,7 @@ export default function PoliceLoginPage() {
     localStorage.setItem("userRole", "police")
     localStorage.setItem("username", username)
 
-    router.push("/dashboard")
+    router.push("/police-dashboard")
     setIsLoading(false)
   }
 
