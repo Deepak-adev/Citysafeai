@@ -53,7 +53,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     const loadLeaflet = async () => {
       // Check if Leaflet is already loaded
       if ((window as any).L) {
-        initializeMap((window as any).L)
+        await initializeMap((window as any).L)
         return
       }
 
@@ -81,8 +81,8 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         // Load Leaflet Routing Machine after Leaflet is loaded
         const routingScript = document.createElement("script")
         routingScript.src = "https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"
-        routingScript.onload = () => {
-          initializeMap((window as any).L)
+        routingScript.onload = async () => {
+          await initializeMap((window as any).L)
         }
         document.head.appendChild(routingScript)
       }
@@ -90,7 +90,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       document.head.appendChild(script)
     }
 
-    const initializeMap = (L: any) => {
+    const initializeMap = async (L: any) => {
       if (!mapRef.current || mapInstanceRef.current) return
 
       // Load routing plugin
@@ -100,11 +100,11 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         show: false
       });
 
-      // Chennai coordinates
-      const chennaiCoords: [number, number] = [13.0827, 80.2707]
+      // Tamil Nadu inland center coordinates (away from coast)
+      const tnCoords: [number, number] = [11.0168, 77.5]
 
       // Initialize map
-      const map = L.map(mapRef.current).setView(chennaiCoords, 11)
+      const map = L.map(mapRef.current).setView(tnCoords, 7)
       mapInstanceRef.current = map
 
       // Add OpenStreetMap tiles
@@ -130,7 +130,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       }
 
       // Add demo data for each layer
-      setupEnhancedDemoLayers(L, layersRef.current)
+      await setupEnhancedDemoLayers(L, layersRef.current)
       
       // Load approved public reports as alerts
       loadApprovedReports(L, layersRef.current)
@@ -152,38 +152,42 @@ export default function MapComponent({ activeLayer, source, destination, showRou
 
   // Handle layer visibility and refresh approved reports
   useEffect(() => {
-    if (!mapInstanceRef.current || !layersRef.current) return
+    const updateLayers = async () => {
+      if (!mapInstanceRef.current || !layersRef.current) return
 
-    // Remove all layers first
-    Object.values(layersRef.current).forEach((layer: any) => {
-      if (mapInstanceRef.current.hasLayer(layer)) {
-        mapInstanceRef.current.removeLayer(layer)
+      // Remove all layers first
+      Object.values(layersRef.current).forEach((layer: any) => {
+        if (mapInstanceRef.current.hasLayer(layer)) {
+          mapInstanceRef.current.removeLayer(layer)
+        }
+      })
+
+      // Recreate layers with fresh data
+      const L = (window as any).L
+      if (L) {
+        layersRef.current.alerts.clearLayers()
+        await setupEnhancedDemoLayers(L, layersRef.current)
+        loadApprovedReports(L, layersRef.current)
       }
-    })
 
-    // Recreate layers with fresh data
-    const L = (window as any).L
-    if (L) {
-      layersRef.current.alerts.clearLayers()
-      setupEnhancedDemoLayers(L, layersRef.current)
-      loadApprovedReports(L, layersRef.current)
+      // Add active layer
+      if (activeLayer && layersRef.current[activeLayer]) {
+        layersRef.current[activeLayer].addTo(mapInstanceRef.current)
+      }
     }
-
-    // Add active layer
-    if (activeLayer && layersRef.current[activeLayer]) {
-      layersRef.current[activeLayer].addTo(mapInstanceRef.current)
-    }
+    
+    updateLayers()
   }, [activeLayer])
 
   // Listen for localStorage changes to refresh approved reports
   useEffect(() => {
-    const handleStorageChange = () => {
+    const handleStorageChange = async () => {
       if (!mapInstanceRef.current || !layersRef.current || activeLayer !== 'alerts') return
       
       const L = (window as any).L
       if (L) {
         layersRef.current.alerts.clearLayers()
-        setupEnhancedDemoLayers(L, layersRef.current)
+        await setupEnhancedDemoLayers(L, layersRef.current)
         loadApprovedReports(L, layersRef.current)
       }
     }
@@ -202,77 +206,46 @@ export default function MapComponent({ activeLayer, source, destination, showRou
   return <div ref={mapRef} className="w-full h-full rounded-lg" />
 }
 
-function setupEnhancedDemoLayers(L: any, layers: any) {
-  // Heatmap layer - Enhanced red circular zones with crime intensity
-  const crimeHotspots = [
-    // Chennai High Risk Areas - Accurate Coordinates
-    { lat: 13.0405, lng: 80.2337, intensity: 0.95, area: "T. Nagar Main Road", crimes: 67 },
-    { lat: 13.0368, lng: 80.2676, intensity: 0.92, area: "Mylapore East", crimes: 58 },
-    { lat: 13.0064, lng: 80.2206, intensity: 0.88, area: "Guindy Railway Station", crimes: 52 },
-    { lat: 13.0850, lng: 80.2101, intensity: 0.85, area: "Anna Nagar West", crimes: 48 },
-    { lat: 13.0827, lng: 80.2442, intensity: 0.82, area: "Kilpauk Garden Road", crimes: 45 },
-    { lat: 13.0213, lng: 80.2231, intensity: 0.80, area: "Saidapet West", crimes: 42 },
-    { lat: 12.9758, lng: 80.2209, intensity: 0.78, area: "Velachery Main Road", crimes: 40 },
-    { lat: 13.0500, lng: 80.2121, intensity: 0.75, area: "Vadapalani Signal", crimes: 38 },
-    { lat: 13.0554, lng: 80.2586, intensity: 0.72, area: "Royapettah High Road", crimes: 36 },
-    { lat: 13.0067, lng: 80.2572, intensity: 0.70, area: "Adyar Bridge", crimes: 34 },
-
-    // Chennai Medium-High Risk Areas - Accurate Coordinates
-    { lat: 13.0694, lng: 80.2178, intensity: 0.68, area: "Aminjikarai Market", crimes: 32 },
-    { lat: 13.0298, lng: 80.2405, intensity: 0.65, area: "Nandanam Signal", crimes: 30 },
-    { lat: 13.0521, lng: 80.2210, intensity: 0.62, area: "Kodambakkam High Road", crimes: 28 },
-    { lat: 13.0813, lng: 80.2485, intensity: 0.60, area: "Purasaiwakkam West", crimes: 26 },
-    { lat: 13.1242, lng: 80.1947, intensity: 0.58, area: "Kolathur Junction", crimes: 24 },
-    { lat: 12.9972, lng: 80.2707, intensity: 0.55, area: "Besant Nagar Beach", crimes: 22 },
-    { lat: 12.9432, lng: 80.2417, intensity: 0.52, area: "Thiruvanmiyur Bus Stand", crimes: 20 },
-    { lat: 12.9249, lng: 80.1000, intensity: 0.50, area: "Tambaram East", crimes: 18 },
-    { lat: 13.0143, lng: 80.2094, intensity: 0.48, area: "Ekkatuthangal West", crimes: 16 },
-    { lat: 12.9480, lng: 80.2078, intensity: 0.45, area: "Pallikaranai Junction", crimes: 14 },
-
-    // Chennai Medium Risk Areas - Accurate Coordinates
-    { lat: 13.0421, lng: 80.2312, intensity: 0.42, area: "T. Nagar South", crimes: 12 },
-    { lat: 13.0321, lng: 80.2654, intensity: 0.40, area: "Mylapore West", crimes: 10 },
-    { lat: 13.0102, lng: 80.2234, intensity: 0.38, area: "Guindy East", crimes: 8 },
-    { lat: 13.0876, lng: 80.2134, intensity: 0.35, area: "Anna Nagar East", crimes: 6 },
-    { lat: 13.0798, lng: 80.2412, intensity: 0.32, area: "Kilpauk Medical College", crimes: 4 },
-    { lat: 13.0234, lng: 80.2256, intensity: 0.30, area: "Saidapet East", crimes: 3 },
-    { lat: 12.9778, lng: 80.2234, intensity: 0.28, area: "Velachery East", crimes: 2 },
-    { lat: 13.0512, lng: 80.2145, intensity: 0.25, area: "Vadapalani East", crimes: 1 },
-    { lat: 13.0534, lng: 80.2567, intensity: 0.22, area: "Royapettah West", crimes: 1 },
-    { lat: 13.0089, lng: 80.2598, intensity: 0.20, area: "Adyar East", crimes: 1 },
-
-    // Tamil Nadu District Areas - High Risk - Accurate Coordinates
-    { lat: 11.0168, lng: 76.9558, intensity: 0.85, area: "Coimbatore Gandhipuram", crimes: 55 },
-    { lat: 10.7905, lng: 78.7047, intensity: 0.82, area: "Tiruchirappalli Central", crimes: 50 },
-    { lat: 9.9252, lng: 78.1198, intensity: 0.80, area: "Madurai Meenakshi Temple", crimes: 48 },
-    { lat: 8.7642, lng: 78.1348, intensity: 0.78, area: "Tirunelveli Junction", crimes: 45 },
-    { lat: 12.9716, lng: 79.1587, intensity: 0.75, area: "Vellore CMC Hospital", crimes: 42 },
-    { lat: 11.6643, lng: 78.1460, intensity: 0.72, area: "Salem Junction", crimes: 40 },
-    { lat: 10.7867, lng: 79.1378, intensity: 0.70, area: "Thanjavur Big Temple", crimes: 38 },
-    { lat: 11.3410, lng: 77.7172, intensity: 0.68, area: "Erode Bus Stand", crimes: 35 },
-    { lat: 8.1833, lng: 77.4119, intensity: 0.65, area: "Nagercoil Town", crimes: 32 },
-    { lat: 13.3178, lng: 80.4265, intensity: 0.62, area: "Tiruvallur Junction", crimes: 30 },
-
-    // Tamil Nadu District Areas - Medium Risk - Accurate Coordinates
-    { lat: 12.8342, lng: 80.0605, intensity: 0.60, area: "Chengalpattu Railway", crimes: 28 },
-    { lat: 12.5186, lng: 78.2137, intensity: 0.58, area: "Krishnagiri Town", crimes: 26 },
-    { lat: 10.3673, lng: 77.9803, intensity: 0.55, area: "Dindigul Fort", crimes: 24 },
-    { lat: 9.4396, lng: 77.8028, intensity: 0.52, area: "Virudhunagar Market", crimes: 22 },
-    { lat: 8.0883, lng: 77.5385, intensity: 0.50, area: "Kanyakumari Beach", crimes: 20 },
-    { lat: 12.9202, lng: 79.1325, intensity: 0.48, area: "Ranipet Industrial", crimes: 18 },
-    { lat: 10.6112, lng: 79.8496, intensity: 0.45, area: "Nagapattinam Port", crimes: 16 },
-    { lat: 11.1085, lng: 79.6501, intensity: 0.42, area: "Cuddalore Beach", crimes: 14 },
-
-    // Tamil Nadu District Areas - Low Risk - Accurate Coordinates
-    { lat: 12.3072, lng: 78.4517, intensity: 0.35, area: "Dharmapuri Town", crimes: 8 },
-    { lat: 9.8433, lng: 78.4809, intensity: 0.32, area: "Sivaganga Temple", crimes: 6 },
-    { lat: 10.0743, lng: 78.7728, intensity: 0.30, area: "Pudukkottai Fort", crimes: 4 },
-    { lat: 11.9214, lng: 79.4850, intensity: 0.28, area: "Villupuram Junction", crimes: 3 },
-    { lat: 9.1705, lng: 78.1213, intensity: 0.25, area: "Ramanathapuram Coast", crimes: 2 },
-    { lat: 8.3177, lng: 77.1694, intensity: 0.22, area: "Kanniyakumari Temple", crimes: 1 },
-    { lat: 12.1197, lng: 79.0747, intensity: 0.20, area: "Tindivanam Market", crimes: 1 },
-    { lat: 10.7870, lng: 79.1315, intensity: 0.18, area: "Thanjavur Railway", crimes: 1 },
-  ]
+async function setupEnhancedDemoLayers(L: any, layers: any) {
+  let crimeHotspots: any[] = []
+  
+  try {
+    // Fetch crime hotspots from server API
+    const response = await fetch('http://localhost:8000/api/crime-predictions/?city=TamilNadu&count=100')
+    const data = await response.json()
+    
+    if (data.status === 'success' && data.coordinates) {
+      // Transform server data to match expected format
+      crimeHotspots = data.coordinates.map((coord: any, index: number) => {
+        const riskIntensity = {
+          'high': 0.8 + Math.random() * 0.2,
+          'medium': 0.4 + Math.random() * 0.4,
+          'low': 0.1 + Math.random() * 0.3
+        }[coord.risk_level] || 0.5
+        
+        return {
+          lat: coord.lat,
+          lng: coord.lng,
+          intensity: riskIntensity,
+          area: `TN Location ${index + 1}`,
+          crimes: Math.floor(riskIntensity * 70)
+        }
+      })
+    }
+  } catch (error) {
+    console.error('Failed to fetch crime data from server:', error)
+  }
+  
+  // Fallback to default data if server request fails
+  if (crimeHotspots.length === 0) {
+    crimeHotspots = [
+      { lat: 13.0405, lng: 80.2337, intensity: 0.95, area: "T. Nagar Main Road", crimes: 67 },
+      { lat: 13.0368, lng: 80.2676, intensity: 0.92, area: "Mylapore East", crimes: 58 },
+      { lat: 13.0064, lng: 80.2206, intensity: 0.88, area: "Guindy Railway Station", crimes: 52 },
+      { lat: 13.0850, lng: 80.2101, intensity: 0.85, area: "Anna Nagar West", crimes: 48 },
+      { lat: 13.0827, lng: 80.2442, intensity: 0.82, area: "Kilpauk Garden Road", crimes: 45 }
+    ]
+  }
 
   crimeHotspots.forEach((hotspot) => {
     // Calculate color based on intensity
