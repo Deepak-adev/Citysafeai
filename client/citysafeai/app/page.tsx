@@ -56,6 +56,39 @@ export default function CitySafeAILanding() {
     }
   ];
 
+  const mainFeatures = [
+    {
+      icon: "🔥",
+      title: "Crime Heatmap",
+      description: "View real-time crime hotspots and risk areas across the city with interactive heat visualization",
+      action: () => {
+        localStorage.setItem('selectedFeature', 'heatmap')
+        router.push('/public-login')
+      },
+      gradient: "from-red-500 to-red-700"
+    },
+    {
+      icon: "⚠️",
+      title: "Active Alerts",
+      description: "Stay informed about current incidents, emergency reports, and safety notifications in your area",
+      action: () => {
+        localStorage.setItem('selectedFeature', 'alerts')
+        router.push('/public-login')
+      },
+      gradient: "from-orange-500 to-orange-700"
+    },
+    {
+      icon: "🛡️",
+      title: "Safe Routes",
+      description: "Find the safest paths for your journey with AI-powered route recommendations and real-time updates",
+      action: () => {
+        localStorage.setItem('selectedFeature', 'saferoute')
+        router.push('/public-login')
+      },
+      gradient: "from-green-500 to-green-700"
+    }
+  ];
+
   const stats = [
     { number: "94%", label: "Prediction Accuracy" },
     { number: "40%", label: "Response Time Improvement" },
@@ -64,10 +97,12 @@ export default function CitySafeAILanding() {
   ];
 
   const handleCitizenPortalClick = () => {
+    localStorage.removeItem('selectedFeature')
     router.push('/public-login');
   };
 
   const handleLawEnforcementPortalClick = () => {
+    localStorage.removeItem('selectedFeature')
     router.push('/police-login');
   };
 
@@ -209,6 +244,53 @@ export default function CitySafeAILanding() {
             </p>
           </div>
 
+          {/* Main Interactive Features */}
+          <div className="mb-16">
+            <h3 className="text-2xl font-bold text-center mb-8 text-slate-800">Explore Live Features</h3>
+            <div className="grid md:grid-cols-3 gap-8 mb-12">
+              {mainFeatures.map((feature, index) => (
+                <div 
+                  key={index}
+                  data-animate={`main-feature-${index}`}
+                  id={`main-feature-${index}`}
+                  onClick={feature.action}
+                  className={`group relative bg-gradient-to-br from-white to-slate-50 rounded-xl p-8 border border-slate-200 hover:border-blue-300 hover:shadow-xl transition-all duration-700 ease-out hover:transform hover:scale-105 hover:-translate-y-2 cursor-pointer ${visibleElements.has(`main-feature-${index}`) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
+                  style={{
+                    transitionDelay: `${index * 200 + 400}ms`
+                  }}
+                >
+                  <div className="relative mb-6 overflow-hidden">
+                    <div className={`w-16 h-16 bg-gradient-to-r ${feature.gradient} rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 shadow-lg group-hover:shadow-xl`}>
+                      <span className="text-2xl transition-transform duration-300 group-hover:scale-110">{feature.icon}</span>
+                    </div>
+                  </div>
+                  
+                  <h3 className="text-2xl font-bold mb-4 text-slate-900 group-hover:text-blue-700 transition-all duration-300">
+                    {feature.title}
+                  </h3>
+                  
+                  <p className="text-slate-600 leading-relaxed font-medium group-hover:text-slate-700 transition-colors duration-300 mb-4">
+                    {feature.description}
+                  </p>
+
+                  <div className="flex items-center text-blue-600 font-semibold group-hover:text-blue-700 transition-colors duration-300">
+                    <span className="mr-2">Try Now</span>
+                    <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                  </div>
+
+                  <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 transition-colors duration-300">
+                      <ChevronRight className="w-4 h-4 text-blue-600 transition-transform duration-300 group-hover:translate-x-0.5" />
+                    </div>
+                  </div>
+
+                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-emerald-50/0 group-hover:from-blue-50/30 group-hover:to-emerald-50/30 rounded-xl transition-all duration-500 pointer-events-none"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Technology Features */}
           <div className="grid md:grid-cols-3 gap-8">
             {features.map((feature, index) => (
               <div 
@@ -217,7 +299,7 @@ export default function CitySafeAILanding() {
                 id={`feature-${index}`}
                 className={`group relative bg-gradient-to-br from-white to-slate-50 rounded-xl p-8 border border-slate-200 hover:border-blue-300 hover:shadow-xl transition-all duration-700 ease-out hover:transform hover:scale-105 hover:-translate-y-2 ${visibleElements.has(`feature-${index}`) ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-12'}`}
                 style={{
-                  transitionDelay: `${index * 200 + 600}ms`
+                  transitionDelay: `${index * 200 + 800}ms`
                 }}
               >
                 <div className="relative mb-6 overflow-hidden">
@@ -240,7 +322,6 @@ export default function CitySafeAILanding() {
                   </div>
                 </div>
 
-                {/* Subtle Background Animation */}
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-emerald-50/0 group-hover:from-blue-50/30 group-hover:to-emerald-50/30 rounded-xl transition-all duration-500 pointer-events-none"></div>
               </div>
             ))}

@@ -46,6 +46,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const storedRole = localStorage.getItem("userRole")
     const storedUsername = localStorage.getItem("username")
+    const selectedFeature = localStorage.getItem("selectedFeature")
     
     if (!storedRole || !storedUsername) {
       router.push("/")
@@ -54,6 +55,12 @@ export default function DashboardPage() {
 
     setUserRole(storedRole)
     setUsername(storedUsername)
+    
+    // Auto-select feature if coming from homepage
+    if (selectedFeature) {
+      setActiveLayer(selectedFeature)
+      localStorage.removeItem("selectedFeature")
+    }
   }, [router])
 
   // Load public reports and refresh when dialog closes
