@@ -29,6 +29,19 @@ const MapComponent = dynamic(() => import("@/components/map-component"), {
   ),
 })
 
+// Dynamically import patrol management component
+const PatrolManagement = dynamic(() => import("@/components/patrol-management"), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-full bg-card rounded-lg flex items-center justify-center">
+      <div className="text-center space-y-2">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+        <p className="text-muted-foreground">Loading patrol management...</p>
+      </div>
+    </div>
+  ),
+})
+
 export default function DashboardPage() {
   const [userRole, setUserRole] = useState<string>("")
   const [username, setUsername] = useState<string>("")
@@ -198,15 +211,24 @@ export default function DashboardPage() {
 
       {/* Main Content */}
       <main className="relative h-[calc(100vh-80px)] sm:h-[calc(100vh-88px)]">
-        {/* Map Container */}
-        <div className="absolute inset-0 z-0">
-          <MapComponent 
-            activeLayer={activeLayer}
-            source={source}
-            destination={destination}
-            showRoute={showRoute}
-          />
-        </div>
+        {/* Show Patrol Management for patrol feature */}
+        {activeLayer === "patrol" ? (
+          <div className="absolute inset-0 z-0 overflow-y-auto">
+            <div className="p-4 sm:p-6">
+              <PatrolManagement />
+            </div>
+          </div>
+        ) : (
+          /* Map Container for other features */
+          <div className="absolute inset-0 z-0">
+            <MapComponent 
+              activeLayer={activeLayer}
+              source={source}
+              destination={destination}
+              showRoute={showRoute}
+            />
+          </div>
+        )}
 
         {/* Alerts List Panel */}
         {activeLayer === "alerts" && (

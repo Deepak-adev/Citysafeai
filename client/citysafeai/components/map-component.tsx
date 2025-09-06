@@ -7,9 +7,31 @@ interface MapComponentProps {
   source?: string
   destination?: string
   showRoute?: boolean
+  patrolRoute?: {
+    id: string
+    name: string
+    waypoints: Array<{
+      lat: number
+      lng: number
+      name: string
+      type: 'hotspot' | 'checkpoint' | 'station'
+      priority: number
+      estimated_time: number
+      status: 'pending' | 'in_progress' | 'completed'
+    }>
+    total_distance: number
+    estimated_duration: number
+    status: 'scheduled' | 'active' | 'completed' | 'paused'
+    assigned_officers: string[]
+    efficiency_score: number
+  }
+  currentLocation?: {
+    lat: number
+    lng: number
+  }
 }
 
-export default function MapComponent({ activeLayer, source, destination, showRoute }: MapComponentProps) {
+export default function MapComponent({ activeLayer, source, destination, showRoute, patrolRoute, currentLocation }: MapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const layersRef = useRef<any>({})
@@ -35,6 +57,50 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     // Create safe route
     geocodeAndRoute(L, mapInstanceRef.current, source, destination)
   }, [source, destination, showRoute])
+
+  // Handle patrol route display
+  useEffect(() => {
+    if (!mapInstanceRef.current || !patrolRoute || !layersRef.current) return
+
+    const L = (window as any).L
+    if (!L) return
+
+    // Clear existing patrol route
+    layersRef.current.patrolRoute.clearLayers()
+
+    // Add patrol route to map
+    displayPatrolRoute(L, layersRef.current.patrolRoute, patrolRoute)
+
+    // Add patrol route layer to map if not already added
+    if (!mapInstanceRef.current.hasLayer(layersRef.current.patrolRoute)) {
+      layersRef.current.patrolRoute.addTo(mapInstanceRef.current)
+    }
+  }, [patrolRoute])
+
+  // Handle police vehicle pin display
+  useEffect(() => {
+    console.log('Police vehicle useEffect triggered:', { currentLocation, mapReady: !!mapInstanceRef.current, layersReady: !!layersRef.current })
+    
+    if (!mapInstanceRef.current || !currentLocation || !layersRef.current) {
+      console.log('Missing requirements for police vehicle pin')
+      return
+    }
+
+    const L = (window as any).L
+    if (!L) {
+      console.log('Leaflet not available')
+      return
+    }
+
+    // Ensure police vehicle layer is added to map
+    if (!mapInstanceRef.current.hasLayer(layersRef.current.policeVehicle)) {
+      layersRef.current.policeVehicle.addTo(mapInstanceRef.current)
+      console.log('Police vehicle layer added to map')
+    }
+
+    // Add police vehicle pin at current location
+    addPoliceVehiclePin(L, currentLocation, layersRef.current.policeVehicle)
+  }, [currentLocation])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -89,11 +155,36 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         show: false
       });
 
-      // Chennai center coordinates for better hotspot visibility
-      const chennaiCoords: [number, number] = [13.0827, 80.2707]
+      // Get user's current location for map initialization
+      const initializeMapWithLocation = async () => {
+        let initialCoords: [number, number] = [13.0827, 80.2707] // Default to Chennai
+        let initialZoom = 11
+
+        try {
+          if (navigator.geolocation) {
+            const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 5000,
+                maximumAge: 60000
+              })
+            })
+            
+            initialCoords = [position.coords.latitude, position.coords.longitude]
+            initialZoom = 13 // Closer zoom for current location
+            console.log('Map initialized with current location:', initialCoords)
+          }
+        } catch (error) {
+          console.log('Using default location for map initialization:', error)
+        }
+
+        // Initialize map with current location or default
+        const map = L.map(mapRef.current).setView(initialCoords, initialZoom)
+        return map
+      }
 
       // Initialize map
-      const map = L.map(mapRef.current).setView(chennaiCoords, 11)
+      const map = await initializeMapWithLocation()
       mapInstanceRef.current = map
 
       // Add OpenStreetMap tiles
@@ -117,6 +208,8 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         saferoute: L.layerGroup(),
         alerts: L.layerGroup(),
         zones: L.layerGroup(),
+        patrolRoute: L.layerGroup(),
+        policeVehicle: L.layerGroup(),
       }
 
       // Add demo data for each layer
@@ -125,13 +218,32 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       // Load approved public reports as alerts
       loadApprovedReports(L, layersRef.current)
 
-      // Add default heatmap layer to map
-      if (layersRef.current.heatmap) {
-        console.log('Adding initial heatmap layer to map')
-        layersRef.current.heatmap.addTo(map)
-        console.log('Initial heatmap layer added successfully')
-        console.log('Heatmap layer has', layersRef.current.heatmap.getLayers().length, 'layers')
-      }
+        // Add default heatmap layer to map
+        if (layersRef.current.heatmap) {
+          console.log('Adding initial heatmap layer to map')
+          layersRef.current.heatmap.addTo(map)
+          console.log('Initial heatmap layer added successfully')
+          console.log('Heatmap layer has', layersRef.current.heatmap.getLayers().length, 'layers')
+        }
+
+        // Center map on current location if available
+        if (navigator.geolocation) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const userLocation = [position.coords.latitude, position.coords.longitude] as [number, number]
+              map.setView(userLocation, 13)
+              console.log('Map centered on user location:', userLocation)
+            },
+            (error) => {
+              console.log('Could not get location for map centering:', error)
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 5000,
+              maximumAge: 60000
+            }
+          )
+        }
 
       // Start automatic hotspot refresh
       startAutomaticHotspotRefresh()
@@ -212,6 +324,14 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         console.log(`Layer ${activeLayer} added successfully`)
       } else {
         console.log(`Layer ${activeLayer} not found or map not ready`)
+      }
+
+      // Always add police vehicle layer (if it exists and has content)
+      if (layersRef.current.policeVehicle && layersRef.current.policeVehicle.getLayers().length > 0) {
+        if (!mapInstanceRef.current.hasLayer(layersRef.current.policeVehicle)) {
+          layersRef.current.policeVehicle.addTo(mapInstanceRef.current)
+          console.log('Police vehicle layer added to map')
+        }
       }
     }
     
@@ -431,7 +551,7 @@ async function setupEnhancedDemoLayers(L: any, layers: any, useCache: boolean = 
       })
       
       // Get the map instance from the layer
-      const map = layers.heatmap._map || mapInstanceRef.current
+      const map = layers.heatmap._map
       if (map) {
         map.fitBounds(bounds.pad(0.1))
         console.log('Map bounds fitted to show all hotspots')
@@ -1105,6 +1225,316 @@ function calculateDistance(coord1: number[], coord2: number[]) {
     Math.sin(dLon/2) * Math.sin(dLon/2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a))
   return R * c
+}
+
+function displayPatrolRoute(L: any, layer: any, patrolRoute: any) {
+  if (!patrolRoute || !patrolRoute.waypoints || patrolRoute.waypoints.length === 0) return
+
+  const waypoints = patrolRoute.waypoints
+  const routeColor = getRouteColor(patrolRoute.status)
+  
+  // Create route polyline with all waypoints for continuous path
+  const routeCoords = waypoints.map((wp: any) => [wp.lat, wp.lng])
+  const routeLine = L.polyline(routeCoords, {
+    color: routeColor,
+    weight: 6,
+    opacity: 0.8,
+    dashArray: patrolRoute.status === 'paused' ? "10, 5" : null
+  })
+
+  // Add route direction arrows for better visualization
+  const addRouteArrows = (line: any, map: any) => {
+    const latlngs = line.getLatLngs()
+    for (let i = 0; i < latlngs.length - 1; i++) {
+      const start = latlngs[i]
+      const end = latlngs[i + 1]
+      const midLat = (start.lat + end.lat) / 2
+      const midLng = (start.lng + end.lng) / 2
+      
+      // Calculate bearing for arrow direction
+      const bearing = Math.atan2(end.lng - start.lng, end.lat - start.lat) * 180 / Math.PI
+      
+      const arrow = L.marker([midLat, midLng], {
+        icon: L.divIcon({
+          className: "route-arrow",
+          html: `<div style="
+            transform: rotate(${bearing}deg);
+            color: ${routeColor};
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+          ">→</div>`,
+          iconSize: [20, 20]
+        })
+      })
+      
+      layer.addLayer(arrow)
+    }
+  }
+
+  routeLine.bindPopup(`
+    <div style="font-family: system-ui; padding: 12px; min-width: 250px;">
+      <h3 style="margin: 0 0 8px 0; color: ${routeColor}; font-weight: bold;">${patrolRoute.name}</h3>
+      <div style="
+        padding: 8px;
+        background: ${routeColor}15;
+        border: 1px solid ${routeColor}40;
+        border-radius: 6px;
+        margin-bottom: 8px;
+      ">
+        <div style="color: #374151; margin-bottom: 4px;">
+          <strong>Status:</strong> ${patrolRoute.status.toUpperCase()}
+        </div>
+        <div style="color: #374151; margin-bottom: 4px;">
+          <strong>Distance:</strong> ${patrolRoute.total_distance} km
+        </div>
+        <div style="color: #374151; margin-bottom: 4px;">
+          <strong>Duration:</strong> ${patrolRoute.estimated_duration} min
+        </div>
+        <div style="color: #374151; margin-bottom: 4px;">
+          <strong>Officers:</strong> ${patrolRoute.assigned_officers.join(', ')}
+        </div>
+        <div style="color: #374151;">
+          <strong>Efficiency:</strong> ${patrolRoute.efficiency_score}%
+        </div>
+      </div>
+      <p style="margin: 0; color: #6b7280; font-size: 12px;">
+        ${waypoints.length} waypoints • Generated: ${new Date().toLocaleDateString()}
+      </p>
+    </div>
+  `)
+
+  layer.addLayer(routeLine)
+  
+  // Add route direction arrows
+  addRouteArrows(routeLine, layer._map)
+
+  // Add waypoint markers (only for important waypoints, not all intermediate points)
+  waypoints.forEach((waypoint: any, index: number) => {
+    const isCurrentLocation = waypoint.type === 'station' && waypoint.name === 'Current Location'
+    const isHotspot = waypoint.type === 'hotspot'
+    const isCheckpoint = waypoint.type === 'checkpoint'
+    
+    // Only show markers for current location and hotspots, skip intermediate checkpoints
+    if (!isCurrentLocation && !isHotspot) return
+    
+    const markerColor = isCurrentLocation ? '#3b82f6' : getWaypointColor(waypoint.status, waypoint.priority)
+    const markerIcon = L.divIcon({
+      className: "custom-waypoint-marker",
+      html: `
+        <div style="position: relative;">
+          <div style="
+            background: ${markerColor}; 
+            color: white; 
+            border-radius: 50%; 
+            width: 32px; 
+            height: 32px; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-weight: bold;
+            font-size: 14px;
+            border: 3px solid white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+          ">${isCurrentLocation ? '📍' : isHotspot ? '🚨' : '•'}</div>
+          ${waypoint.status === 'completed' ? `
+            <div style="
+              position: absolute;
+              bottom: -2px;
+              right: -2px;
+              background: #16a34a;
+              color: white;
+              border-radius: 50%;
+              width: 18px;
+              height: 18px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: bold;
+              font-size: 10px;
+              border: 2px solid white;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            ">✓</div>
+          ` : waypoint.status === 'in_progress' ? `
+            <div style="
+              position: absolute;
+              bottom: -2px;
+              right: -2px;
+              background: #f59e0b;
+              color: white;
+              border-radius: 50%;
+              width: 18px;
+              height: 18px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: bold;
+              font-size: 10px;
+              border: 2px solid white;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            ">▶</div>
+          ` : ''}
+        </div>`,
+      iconSize: [36, 36]
+    })
+
+    const marker = L.marker([waypoint.lat, waypoint.lng], { icon: markerIcon })
+    
+    marker.bindPopup(`
+      <div style="font-family: system-ui; padding: 12px; min-width: 220px;">
+        <h3 style="margin: 0 0 8px 0; color: ${markerColor}; font-weight: bold;">
+          ${isCurrentLocation ? '📍 Current Location' : `Waypoint ${index}: ${waypoint.name}`}
+        </h3>
+        <div style="
+          padding: 8px;
+          background: ${markerColor}15;
+          border: 1px solid ${markerColor}40;
+          border-radius: 6px;
+          margin-bottom: 8px;
+        ">
+          <div style="color: #374151; margin-bottom: 4px;">
+            <strong>Type:</strong> ${waypoint.type.replace('_', ' ').toUpperCase()}
+          </div>
+          ${!isCurrentLocation && (
+            `<div style="color: #374151; margin-bottom: 4px;">
+              <strong>Priority:</strong> 
+              <span style="
+                color: ${waypoint.priority === 3 ? '#dc2626' : waypoint.priority === 2 ? '#f59e0b' : '#10b981'};
+                font-weight: 500;
+              ">
+                ${waypoint.priority === 3 ? 'High' : waypoint.priority === 2 ? 'Medium' : 'Low'}
+              </span>
+            </div>`
+          )}
+          ${!isCurrentLocation && (
+            `<div style="color: #374151; margin-bottom: 4px;">
+              <strong>Est. Time:</strong> ${waypoint.estimated_time} min
+            </div>`
+          )}
+          <div style="color: #374151;">
+            <strong>Status:</strong> 
+            <span style="
+              color: ${waypoint.status === 'completed' ? '#16a34a' : 
+                      waypoint.status === 'in_progress' ? '#f59e0b' : '#6b7280'};
+              font-weight: 500;
+            ">
+              ${waypoint.status.toUpperCase()}
+            </span>
+          </div>
+        </div>
+        <p style="margin: 0; color: #6b7280; font-size: 12px;">
+          Coordinates: ${waypoint.lat.toFixed(4)}, ${waypoint.lng.toFixed(4)}
+        </p>
+      </div>
+    `)
+
+    layer.addLayer(marker)
+  })
+
+  // Fit map to route bounds
+  if (routeCoords.length > 0) {
+    const bounds = L.latLngBounds(routeCoords)
+    setTimeout(() => {
+      const map = layer._map
+      if (map) {
+        map.fitBounds(bounds.pad(0.1))
+      }
+    }, 100)
+  }
+}
+
+const createPoliceVehicleIcon = (L: any) => {
+  return L.divIcon({
+    html: `<div style="
+      background: linear-gradient(135deg, #1e40af, #3b82f6);
+      border: 3px solid #ffffff;
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      position: relative;
+    ">
+      <div style="
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+      ">🚔</div>
+      <div style="
+        position: absolute;
+        bottom: -8px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 0;
+        height: 0;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-top: 8px solid #1e40af;
+      "></div>
+    </div>`,
+    className: 'police-vehicle-marker',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20]
+  })
+}
+
+const addPoliceVehiclePin = (L: any, location: {lat: number, lng: number}, layer: any) => {
+  if (!layer) {
+    console.log('Police vehicle layer not available')
+    return
+  }
+
+  console.log('Adding police vehicle pin at:', location)
+
+  // Clear existing police vehicle pins
+  layer.clearLayers()
+
+  const policeIcon = createPoliceVehicleIcon(L)
+  
+  const marker = L.marker([location.lat, location.lng], { 
+    icon: policeIcon,
+    zIndexOffset: 1000 // Ensure it's on top
+  })
+  
+  marker.bindPopup(`
+    <div style="text-align: center; padding: 8px;">
+      <div style="font-size: 24px; margin-bottom: 4px;">🚔</div>
+      <div style="font-weight: bold; color: #1e40af; margin-bottom: 4px;">Police Vehicle</div>
+      <div style="font-size: 12px; color: #666;">
+        Current Location<br>
+        ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}
+      </div>
+    </div>
+  `)
+  
+  layer.addLayer(marker)
+  console.log('Police vehicle pin added to layer')
+}
+
+function getRouteColor(status: string): string {
+  switch (status) {
+    case 'active': return '#16a34a' // Green
+    case 'paused': return '#f59e0b' // Yellow
+    case 'completed': return '#6b7280' // Gray
+    case 'scheduled': return '#3b82f6' // Blue
+    default: return '#3b82f6'
+  }
+}
+
+function getWaypointColor(status: string, priority: number): string {
+  if (status === 'completed') return '#16a34a' // Green
+  if (status === 'in_progress') return '#f59e0b' // Yellow
+  
+  // Color by priority for pending waypoints
+  switch (priority) {
+    case 3: return '#dc2626' // Red for high priority
+    case 2: return '#f59e0b' // Yellow for medium priority
+    case 1: return '#10b981' // Green for low priority
+    default: return '#6b7280' // Gray
+  }
 }
 
 
