@@ -226,6 +226,7 @@ export default function DashboardPage() {
               source={source}
               destination={destination}
               showRoute={showRoute}
+              userRole={userRole}
             />
           </div>
         )}
@@ -429,7 +430,7 @@ export default function DashboardPage() {
                       alert(`API Test: ${data.status} - ${data.total_coordinates} coordinates received`)
                     } catch (error) {
                       console.error('API Test Error:', error)
-                      alert('API Test Failed: ' + error.message)
+                      alert('API Test Failed: ' + (error instanceof Error ? error.message : 'Unknown error'))
                     }
                   }}
                   className="flex items-center space-x-1 ml-2"

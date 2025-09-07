@@ -29,9 +29,10 @@ interface MapComponentProps {
     lat: number
     lng: number
   }
+  userRole?: string
 }
 
-export default function MapComponent({ activeLayer, source, destination, showRoute, patrolRoute, currentLocation }: MapComponentProps) {
+export default function MapComponent({ activeLayer, source, destination, showRoute, patrolRoute, currentLocation, userRole }: MapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const layersRef = useRef<any>({})
@@ -101,6 +102,48 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     // Add police vehicle pin at current location
     addPoliceVehiclePin(L, currentLocation, layersRef.current.policeVehicle)
   }, [currentLocation])
+
+  // Handle role-based path display when zones are active
+  useEffect(() => {
+    console.log('Role-based path useEffect triggered:', { 
+      activeLayer, 
+      userRole, 
+      mapReady: !!mapInstanceRef.current, 
+      layersReady: !!layersRef.current 
+    })
+    
+    if (!mapInstanceRef.current || !layersRef.current || activeLayer !== 'zones' || !userRole) {
+      console.log('Missing requirements for role-based paths')
+      return
+    }
+
+    const L = (window as any).L
+    if (!L) {
+      console.log('Leaflet not available for role-based paths')
+      return
+    }
+
+    // Clear existing role-based paths
+    layersRef.current.roleBasedPaths.clearLayers()
+    console.log('Cleared existing role-based paths')
+
+    // Add role-based paths based on user role
+    if (userRole === 'police') {
+      console.log('Adding red zone paths for police user')
+      addRedZonePaths(L, layersRef.current.roleBasedPaths)
+    } else if (userRole === 'public') {
+      console.log('Adding green zone paths for public user')
+      addGreenZonePaths(L, layersRef.current.roleBasedPaths)
+    }
+
+    // Add role-based paths layer to map
+    if (!mapInstanceRef.current.hasLayer(layersRef.current.roleBasedPaths)) {
+      layersRef.current.roleBasedPaths.addTo(mapInstanceRef.current)
+      console.log('Role-based paths layer added to map')
+    } else {
+      console.log('Role-based paths layer already on map')
+    }
+  }, [activeLayer, userRole])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -210,6 +253,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         zones: L.layerGroup(),
         patrolRoute: L.layerGroup(),
         policeVehicle: L.layerGroup(),
+        roleBasedPaths: L.layerGroup(),
       }
 
       // Add demo data for each layer
@@ -331,6 +375,14 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         if (!mapInstanceRef.current.hasLayer(layersRef.current.policeVehicle)) {
           layersRef.current.policeVehicle.addTo(mapInstanceRef.current)
           console.log('Police vehicle layer added to map')
+        }
+      }
+
+      // Always add role-based paths layer (if it exists and has content)
+      if (layersRef.current.roleBasedPaths && layersRef.current.roleBasedPaths.getLayers().length > 0) {
+        if (!mapInstanceRef.current.hasLayer(layersRef.current.roleBasedPaths)) {
+          layersRef.current.roleBasedPaths.addTo(mapInstanceRef.current)
+          console.log('Role-based paths layer added to map')
         }
       }
     }
@@ -1512,6 +1564,176 @@ const addPoliceVehiclePin = (L: any, location: {lat: number, lng: number}, layer
   
   layer.addLayer(marker)
   console.log('Police vehicle pin added to layer')
+}
+
+const addRedZonePaths = (L: any, layer: any) => {
+  console.log('Adding red zone paths for police users')
+  
+  // Define red zone paths (shortest/dangerous routes for police)
+  const redZonePaths = [
+    {
+      name: "High Crime Corridor",
+      coordinates: [
+        [13.0827, 80.2707], // Chennai Central
+        [13.0458, 80.2209], // South Chennai
+        [13.1067, 80.2109], // North Chennai
+        [13.0827, 80.2707]  // Back to Central
+      ],
+      description: "Shortest route through high-crime areas",
+      riskLevel: "High"
+    },
+    {
+      name: "Emergency Response Route",
+      coordinates: [
+        [13.0827, 80.2707], // Chennai Central
+        [13.1185, 80.2574], // North Chennai
+        [13.0200, 80.2500], // South Chennai
+        [13.0827, 80.2707]  // Back to Central
+      ],
+      description: "Fastest emergency response path",
+      riskLevel: "Critical"
+    },
+    {
+      name: "Patrol Hotspot Circuit",
+      coordinates: [
+        [13.0827, 80.2707], // Chennai Central
+        [13.0756, 80.2834], // Central East
+        [13.0689, 80.2878], // Central North
+        [13.0623, 80.2912], // Central Northeast
+        [13.0827, 80.2707]  // Back to Central
+      ],
+      description: "Circuit covering all crime hotspots",
+      riskLevel: "High"
+    }
+  ]
+
+  redZonePaths.forEach((path, index) => {
+    console.log(`Adding red zone path ${index + 1}:`, path.name, path.coordinates)
+    
+    const polyline = L.polyline(path.coordinates, {
+      color: '#dc2626', // Red color
+      weight: 6, // Increased weight for better visibility
+      opacity: 0.9, // Increased opacity
+      dashArray: '10, 15' // More visible dash pattern
+    })
+
+    polyline.bindPopup(`
+      <div style="font-family: system-ui; padding: 12px; min-width: 250px;">
+        <h3 style="margin: 0 0 8px 0; color: #dc2626; font-weight: bold;">
+          🚨 ${path.name}
+        </h3>
+        <div style="
+          padding: 8px;
+          background: #fef2f2;
+          border: 1px solid #fecaca;
+          border-radius: 6px;
+          margin-bottom: 8px;
+        ">
+          <div style="color: #374151; margin-bottom: 4px;">
+            <strong>Risk Level:</strong> 
+            <span style="color: #dc2626; font-weight: 500;">${path.riskLevel}</span>
+          </div>
+          <div style="color: #374151;">
+            <strong>Description:</strong> ${path.description}
+          </div>
+        </div>
+        <p style="margin: 0; color: #6b7280; font-size: 12px;">
+          Police-only route - Use with caution
+        </p>
+      </div>
+    `)
+
+    layer.addLayer(polyline)
+    console.log(`Red zone path ${index + 1} added to layer`)
+  })
+  
+  console.log(`Total red zone paths added: ${redZonePaths.length}`)
+}
+
+const addGreenZonePaths = (L: any, layer: any) => {
+  console.log('Adding green zone paths for public users')
+  
+  // Define green zone paths (safe routes for public)
+  const greenZonePaths = [
+    {
+      name: "Safe Public Route",
+      coordinates: [
+        [13.0827, 80.2707], // Chennai Central
+        [13.0900, 80.2800], // Safe area 1
+        [13.0950, 80.2900], // Safe area 2
+        [13.1000, 80.3000], // Safe area 3
+        [13.0827, 80.2707]  // Back to Central
+      ],
+      description: "Safest route for public use",
+      safetyLevel: "High"
+    },
+    {
+      name: "Well-lit Main Roads",
+      coordinates: [
+        [13.0827, 80.2707], // Chennai Central
+        [13.0700, 80.2600], // Main road 1
+        [13.0600, 80.2500], // Main road 2
+        [13.0500, 80.2400], // Main road 3
+        [13.0827, 80.2707]  // Back to Central
+      ],
+      description: "Main roads with good lighting and security",
+      safetyLevel: "Very High"
+    },
+    {
+      name: "Commercial District Route",
+      coordinates: [
+        [13.0827, 80.2707], // Chennai Central
+        [13.0800, 80.2750], // Commercial area 1
+        [13.0775, 80.2800], // Commercial area 2
+        [13.0750, 80.2850], // Commercial area 3
+        [13.0827, 80.2707]  // Back to Central
+      ],
+      description: "Route through busy commercial areas",
+      safetyLevel: "High"
+    }
+  ]
+
+  greenZonePaths.forEach((path, index) => {
+    console.log(`Adding green zone path ${index + 1}:`, path.name, path.coordinates)
+    
+    const polyline = L.polyline(path.coordinates, {
+      color: '#16a34a', // Green color
+      weight: 6, // Increased weight for better visibility
+      opacity: 0.9, // Increased opacity
+      dashArray: '15, 10' // More visible dash pattern
+    })
+
+    polyline.bindPopup(`
+      <div style="font-family: system-ui; padding: 12px; min-width: 250px;">
+        <h3 style="margin: 0 0 8px 0; color: #16a34a; font-weight: bold;">
+          🛡️ ${path.name}
+        </h3>
+        <div style="
+          padding: 8px;
+          background: #f0fdf4;
+          border: 1px solid #bbf7d0;
+          border-radius: 6px;
+          margin-bottom: 8px;
+        ">
+          <div style="color: #374151; margin-bottom: 4px;">
+            <strong>Safety Level:</strong> 
+            <span style="color: #16a34a; font-weight: 500;">${path.safetyLevel}</span>
+          </div>
+          <div style="color: #374151;">
+            <strong>Description:</strong> ${path.description}
+          </div>
+        </div>
+        <p style="margin: 0; color: #6b7280; font-size: 12px;">
+          Recommended safe route for public use
+        </p>
+      </div>
+    `)
+
+    layer.addLayer(polyline)
+    console.log(`Green zone path ${index + 1} added to layer`)
+  })
+  
+  console.log(`Total green zone paths added: ${greenZonePaths.length}`)
 }
 
 function getRouteColor(status: string): string {

@@ -59,6 +59,7 @@ export default function PatrolManagement() {
   const [crimeHotspots, setCrimeHotspots] = useState<any[]>([])
   const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null)
   const [patrolArea, setPatrolArea] = useState<string>('Unknown')
+  const [userRole, setUserRole] = useState<string>('')
   const [patrolStats, setPatrolStats] = useState({
     totalRoutes: 0,
     activeRoutes: 0,
@@ -209,10 +210,27 @@ export default function PatrolManagement() {
   }
 
   useEffect(() => {
+    // Load user role from localStorage
+    const storedRole = localStorage.getItem("userRole")
+    console.log('Patrol management - loaded user role:', storedRole)
+    if (storedRole) {
+      setUserRole(storedRole)
+    }
+    
     updatePatrolStats()
     getUserLocation()
     fetchCrimeHotspots()
   }, [])
+
+  // Debug MapComponent props
+  useEffect(() => {
+    console.log('MapComponent props:', { 
+      activeLayer: selectedLayer, 
+      userRole, 
+      hasPatrolRoute: !!activeRoute, 
+      hasCurrentLocation: !!userLocation 
+    })
+  }, [selectedLayer, userRole, activeRoute, userLocation])
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -393,6 +411,7 @@ export default function PatrolManagement() {
                   activeLayer={selectedLayer}
                   patrolRoute={activeRoute || undefined}
                   currentLocation={userLocation || undefined}
+                  userRole={userRole}
                 />
               </div>
 
