@@ -407,6 +407,7 @@ def calculate_distance(lat1, lng1, lat2, lng2):
     return R * c
 
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # New API endpoints for user management
 
 @csrf_exempt
@@ -775,6 +776,8 @@ def user_activities(request):
             'message': str(e)
         }, status=500)
 =======
+=======
+>>>>>>> Stashed changes
 # Initialize geocoder
 geolocator = Nominatim(user_agent="citysafe_route_app")
 
@@ -900,4 +903,7 @@ def get_patrol_route_coordinates(request):
             "status": "error",
             "message": f"An error occurred: {str(e)}"
         })
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
 >>>>>>> Stashed changes
