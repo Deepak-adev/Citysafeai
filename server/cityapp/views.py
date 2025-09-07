@@ -1,9 +1,18 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
+from .models import UserProfile, EmergencyContact, UserLocation, UserActivity
 from .services import CrimePredictionService
+from .telegram_service import TelegramService
 import json
 import time
+import requests
+from geopy.geocoders import Nominatim
 from datetime import datetime, timedelta
 
 # Mock Police ID Database
@@ -24,8 +33,17 @@ def home(request):
     return render(request, 'cityapp/home.html')
 
 @csrf_exempt
+@require_http_methods(["GET", "OPTIONS"])
 def get_crime_predictions(request):
     """API endpoint to get crime prediction coordinates"""
+    if request.method == 'OPTIONS':
+        # Handle CORS preflight request
+        response = JsonResponse({})
+        response['Access-Control-Allow-Origin'] = '*'
+        response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+        response['Access-Control-Allow-Headers'] = 'Content-Type, Cache-Control, Pragma'
+        return response
+    
     if request.method == 'GET':
         # Initialize the service with Gemini API key
         api_key = "AIzaSyB5JCLElwe1mT7THvsehV0UHTyUQPlfjrE"
@@ -43,20 +61,33 @@ def get_crime_predictions(request):
             latitudes = [coord['lat'] for coord in coordinates]
             longitudes = [coord['lng'] for coord in coordinates]
             
-            return JsonResponse({
+            response = JsonResponse({
                 'status': 'success',
                 'city': city,
                 'total_coordinates': len(coordinates),
                 'latitudes': latitudes,
                 'longitudes': longitudes,
-                'coordinates': coordinates
+                'coordinates': coordinates,
+                'timestamp': int(time.time() * 1000)  # Add timestamp for caching
             })
+            
+            # Add CORS headers for better performance
+            response['Access-Control-Allow-Origin'] = '*'
+            response['Access-Control-Allow-Methods'] = 'GET, OPTIONS'
+            response['Access-Control-Allow-Headers'] = 'Content-Type, Cache-Control, Pragma'
+            response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            response['Pragma'] = 'no-cache'
+            response['Expires'] = '0'
+            
+            return response
         
         except Exception as e:
-            return JsonResponse({
+            error_response = JsonResponse({
                 'status': 'error',
                 'message': str(e)
             }, status=500)
+            error_response['Access-Control-Allow-Origin'] = '*'
+            return error_response
     
     return JsonResponse({'status': 'error', 'message': 'Only GET method allowed'}, status=405)
 
@@ -372,6 +403,8 @@ def calculate_distance(lat1, lng1, lat2, lng2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
 
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
 # New API endpoints for user management
 
 @csrf_exempt
@@ -739,3 +772,135 @@ def user_activities(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+=======
+=======
+>>>>>>> Stashed changes
+# Initialize geocoder
+geolocator = Nominatim(user_agent="citysafe_route_app")
+
+def get_route_coords(start_lat, start_lon, end_lat, end_lon):
+    """Get route coordinates from OSRM"""
+    try:
+        url = f"http://router.project-osrm.org/route/v1/driving/{start_lon},{start_lat};{end_lon},{end_lat}?overview=full&geometries=geojson"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        
+        if data.get('routes') and len(data['routes']) > 0:
+            return data['routes'][0]['geometry']['coordinates']
+        else:
+            return None
+    except Exception as e:
+        print(f"OSRM routing error: {e}")
+        return None
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def get_route_coordinates(request):
+    """Get route coordinates between source and destination"""
+    try:
+        source = request.GET.get("source")
+        destination = request.GET.get("destination")
+
+        if not source or not destination:
+            return JsonResponse({
+                "status": "error",
+                "message": "Please provide both source and destination."
+            })
+
+        # Get lat/lon of source and destination
+        src_location = geolocator.geocode(source)
+        dest_location = geolocator.geocode(destination)
+
+        if not src_location or not dest_location:
+            return JsonResponse({
+                "status": "error",
+                "message": "Could not find one of the locations."
+            })
+
+        src_coords = {"lat": src_location.latitude, "lon": src_location.longitude}
+        dest_coords = {"lat": dest_location.latitude, "lon": dest_location.longitude}
+
+        # Get full route coordinates
+        route_coords = get_route_coords(
+            src_coords["lat"], 
+            src_coords["lon"], 
+            dest_coords["lat"], 
+            dest_coords["lon"]
+        )
+
+        if not route_coords:
+            return JsonResponse({
+                "status": "error",
+                "message": "Could not generate route coordinates."
+            })
+
+        return JsonResponse({
+            "status": "success",
+            "source": src_coords,
+            "destination": dest_coords,
+            "route_coordinates": route_coords
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"An error occurred: {str(e)}"
+        })
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def get_patrol_route_coordinates(request):
+    """Get route coordinates for patrol route with multiple waypoints"""
+    try:
+        data = json.loads(request.body)
+        waypoints = data.get("waypoints", [])
+
+        if len(waypoints) < 2:
+            return JsonResponse({
+                "status": "error",
+                "message": "At least 2 waypoints are required."
+            })
+
+        all_route_coords = []
+        
+        # Get route between each consecutive pair of waypoints
+        for i in range(len(waypoints) - 1):
+            start = waypoints[i]
+            end = waypoints[i + 1]
+            
+            route_segment = get_route_coords(
+                start["lat"], 
+                start["lng"], 
+                end["lat"], 
+                end["lng"]
+            )
+            
+            if route_segment:
+                if i == 0:
+                    all_route_coords = route_segment
+                else:
+                    # Remove the first point to avoid duplication
+                    all_route_coords.extend(route_segment[1:])
+            else:
+                # Fallback to straight line if routing fails
+                if i == 0:
+                    all_route_coords = [[start["lng"], start["lat"]], [end["lng"], end["lat"]]]
+                else:
+                    all_route_coords.extend([[end["lng"], end["lat"]]])
+
+        return JsonResponse({
+            "status": "success",
+            "route_coordinates": all_route_coords,
+            "waypoints": waypoints
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            "status": "error",
+            "message": f"An error occurred: {str(e)}"
+        })
+<<<<<<< Updated upstream
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
