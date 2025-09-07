@@ -2,8 +2,11 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.models import User
+from django.contrib.auth.decorators import login_required
+from django.utils import timezone
+from .models import UserProfile, EmergencyContact, UserLocation, UserActivity
 from .services import CrimePredictionService
 from .telegram_service import TelegramService
 import json
@@ -96,12 +99,27 @@ def register_user(request):
         password = data.get('password')
         email = data.get('email', '')
         role = data.get('role', 'public')
+        phone = data.get('phone', '')
         police_id = data.get('police_id', '')
         
         if not username or not password:
             return JsonResponse({
                 'status': 'error',
                 'message': 'Username and password are required'
+            }, status=400)
+        
+        # Check if username already exists in UserProfile
+        if UserProfile.objects.filter(username=username).exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Username already exists'
+            }, status=400)
+        
+        # Check if username already exists in Django User model
+        if User.objects.filter(username=username).exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Username already exists'
             }, status=400)
         
         # Validate police ID for police role
@@ -118,31 +136,44 @@ def register_user(request):
                     'message': 'Invalid Police ID. Contact your department.'
                 }, status=400)
             
-            if User.objects.filter(last_name=police_id).exists():
+            if UserProfile.objects.filter(police_id=police_id).exists():
                 return JsonResponse({
                     'status': 'error',
                     'message': 'Police ID already registered'
                 }, status=400)
         
-        if User.objects.filter(username=username).exists():
-            return JsonResponse({
-                'status': 'error',
-                'message': 'Username already exists'
-            }, status=400)
-        
+        # Create Django User
         user = User.objects.create_user(
             username=username,
             password=password,
             email=email
         )
-        user.first_name = role
-        if role == 'police':
-            user.last_name = police_id
-        user.save()
+        
+        # Create UserProfile
+        user_profile = UserProfile.objects.create(
+            user=user,
+            username=username,
+            email=email,
+            phone=phone,
+            role=role,
+            police_id=police_id if role == 'police' else None,
+            police_rank=VALID_POLICE_IDS.get(police_id, {}).get('rank') if role == 'police' else None
+        )
+        
+        # Log user registration activity
+        UserActivity.objects.create(
+            user_profile=user_profile,
+            activity_type='login',
+            description=f'User registered successfully',
+            metadata={'role': role, 'police_id': police_id if role == 'police' else None}
+        )
         
         return JsonResponse({
             'status': 'success',
-            'message': 'User registered successfully'
+            'message': 'User registered successfully',
+            'user_id': str(user_profile.id),
+            'username': user_profile.username,
+            'role': user_profile.role
         })
         
     except Exception as e:
@@ -170,15 +201,50 @@ def login_user(request):
         
         if user is not None:
             login(request, user)
-            return JsonResponse({
-                'status': 'success',
-                'message': 'Login successful',
-                'user': {
-                    'username': user.username,
-                    'role': user.first_name or 'public',
-                    'email': user.email
-                }
-            })
+            
+            # Get user profile
+            try:
+                user_profile = UserProfile.objects.get(user=user)
+                # Update last active timestamp
+                user_profile.last_active = timezone.now()
+                user_profile.save()
+                
+                # Log login activity
+                UserActivity.objects.create(
+                    user_profile=user_profile,
+                    activity_type='login',
+                    description=f'User logged in successfully',
+                    metadata={'ip_address': request.META.get('REMOTE_ADDR', 'Unknown')}
+                )
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'message': 'Login successful',
+                    'user': {
+                        'id': str(user_profile.id),
+                        'username': user_profile.username,
+                        'email': user_profile.email,
+                        'phone': user_profile.phone,
+                        'role': user_profile.role,
+                        'police_id': user_profile.police_id,
+                        'police_rank': user_profile.police_rank,
+                        'created_at': user_profile.created_at.isoformat(),
+                        'last_active': user_profile.last_active.isoformat(),
+                        'reports_submitted': user_profile.reports_submitted,
+                        'alerts_received': user_profile.alerts_received,
+                        'safety_score': user_profile.safety_score,
+                        'preferences': {
+                            'notifications_enabled': user_profile.notifications_enabled,
+                            'location_tracking_enabled': user_profile.location_tracking_enabled,
+                            'emergency_alerts_enabled': user_profile.emergency_alerts_enabled
+                        }
+                    }
+                })
+            except UserProfile.DoesNotExist:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'User profile not found. Please contact support.'
+                }, status=500)
         else:
             return JsonResponse({
                 'status': 'error',
@@ -334,3 +400,371 @@ def calculate_distance(lat1, lng1, lat2, lng2):
     
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
+
+# New API endpoints for user management
+
+@csrf_exempt
+@require_http_methods(["GET", "POST", "PUT"])
+def user_profile(request):
+    """API endpoint for user profile management"""
+    try:
+        if request.method == 'GET':
+            # Get user profile by username or user_id
+            username = request.GET.get('username')
+            user_id = request.GET.get('user_id')
+            
+            if not username and not user_id:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Username or user_id is required'
+                }, status=400)
+            
+            try:
+                if user_id:
+                    user_profile = UserProfile.objects.get(id=user_id)
+                else:
+                    user_profile = UserProfile.objects.get(username=username)
+                
+                # Get emergency contacts
+                emergency_contacts = []
+                for contact in user_profile.emergency_contacts.filter(is_active=True):
+                    emergency_contacts.append({
+                        'id': str(contact.id),
+                        'name': contact.name,
+                        'phone': contact.phone,
+                        'relationship': contact.relationship,
+                        'added_date': contact.created_at.isoformat()
+                    })
+                
+                # Get latest location
+                latest_location = None
+                try:
+                    location = user_profile.locations.first()
+                    if location:
+                        latest_location = {
+                            'latitude': float(location.latitude),
+                            'longitude': float(location.longitude),
+                            'address': location.address,
+                            'accuracy': location.accuracy,
+                            'timestamp': location.timestamp.isoformat()
+                        }
+                except:
+                    pass
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'user': {
+                        'id': str(user_profile.id),
+                        'username': user_profile.username,
+                        'email': user_profile.email,
+                        'phone': user_profile.phone,
+                        'role': user_profile.role,
+                        'police_id': user_profile.police_id,
+                        'police_rank': user_profile.police_rank,
+                        'avatar': user_profile.avatar,
+                        'bio': user_profile.bio,
+                        'created_at': user_profile.created_at.isoformat(),
+                        'last_active': user_profile.last_active.isoformat(),
+                        'reports_submitted': user_profile.reports_submitted,
+                        'alerts_received': user_profile.alerts_received,
+                        'safety_score': user_profile.safety_score,
+                        'preferences': {
+                            'notifications_enabled': user_profile.notifications_enabled,
+                            'location_tracking_enabled': user_profile.location_tracking_enabled,
+                            'emergency_alerts_enabled': user_profile.emergency_alerts_enabled
+                        },
+                        'emergency_contacts': emergency_contacts,
+                        'latest_location': latest_location
+                    }
+                })
+            except UserProfile.DoesNotExist:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'User not found'
+                }, status=404)
+        
+        elif request.method == 'POST':
+            # Update user profile
+            data = json.loads(request.body)
+            username = data.get('username')
+            
+            if not username:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Username is required'
+                }, status=400)
+            
+            try:
+                user_profile = UserProfile.objects.get(username=username)
+                
+                # Update fields
+                if 'email' in data:
+                    user_profile.email = data['email']
+                if 'phone' in data:
+                    user_profile.phone = data['phone']
+                if 'avatar' in data:
+                    user_profile.avatar = data['avatar']
+                if 'bio' in data:
+                    user_profile.bio = data['bio']
+                if 'preferences' in data:
+                    prefs = data['preferences']
+                    if 'notifications_enabled' in prefs:
+                        user_profile.notifications_enabled = prefs['notifications_enabled']
+                    if 'location_tracking_enabled' in prefs:
+                        user_profile.location_tracking_enabled = prefs['location_tracking_enabled']
+                    if 'emergency_alerts_enabled' in prefs:
+                        user_profile.emergency_alerts_enabled = prefs['emergency_alerts_enabled']
+                
+                user_profile.save()
+                
+                # Log profile update activity
+                UserActivity.objects.create(
+                    user_profile=user_profile,
+                    activity_type='profile_updated',
+                    description=f'Profile updated successfully',
+                    metadata={'updated_fields': list(data.keys())}
+                )
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'message': 'Profile updated successfully'
+                })
+            except UserProfile.DoesNotExist:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'User not found'
+                }, status=404)
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+@csrf_exempt
+@require_http_methods(["GET", "POST", "DELETE"])
+def emergency_contacts(request):
+    """API endpoint for emergency contacts management"""
+    try:
+        if request.method == 'GET':
+            username = request.GET.get('username')
+            if not username:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Username is required'
+                }, status=400)
+            
+            try:
+                user_profile = UserProfile.objects.get(username=username)
+                contacts = []
+                for contact in user_profile.emergency_contacts.filter(is_active=True):
+                    contacts.append({
+                        'id': str(contact.id),
+                        'name': contact.name,
+                        'phone': contact.phone,
+                        'relationship': contact.relationship,
+                        'added_date': contact.created_at.isoformat()
+                    })
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'contacts': contacts
+                })
+            except UserProfile.DoesNotExist:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'User not found'
+                }, status=404)
+        
+        elif request.method == 'POST':
+            # Add emergency contact
+            data = json.loads(request.body)
+            username = data.get('username')
+            name = data.get('name')
+            phone = data.get('phone')
+            relationship = data.get('relationship')
+            
+            if not all([username, name, phone, relationship]):
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Username, name, phone, and relationship are required'
+                }, status=400)
+            
+            try:
+                user_profile = UserProfile.objects.get(username=username)
+                
+                contact = EmergencyContact.objects.create(
+                    user_profile=user_profile,
+                    name=name,
+                    phone=phone,
+                    relationship=relationship
+                )
+                
+                # Log contact addition activity
+                UserActivity.objects.create(
+                    user_profile=user_profile,
+                    activity_type='contact_added',
+                    description=f'Emergency contact {name} added',
+                    metadata={'contact_id': str(contact.id), 'phone': phone}
+                )
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'message': 'Emergency contact added successfully',
+                    'contact': {
+                        'id': str(contact.id),
+                        'name': contact.name,
+                        'phone': contact.phone,
+                        'relationship': contact.relationship,
+                        'added_date': contact.created_at.isoformat()
+                    }
+                })
+            except UserProfile.DoesNotExist:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'User not found'
+                }, status=404)
+        
+        elif request.method == 'DELETE':
+            # Delete emergency contact
+            data = json.loads(request.body)
+            contact_id = data.get('contact_id')
+            
+            if not contact_id:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Contact ID is required'
+                }, status=400)
+            
+            try:
+                contact = EmergencyContact.objects.get(id=contact_id)
+                contact.is_active = False
+                contact.save()
+                
+                # Log contact removal activity
+                UserActivity.objects.create(
+                    user_profile=contact.user_profile,
+                    activity_type='contact_added',
+                    description=f'Emergency contact {contact.name} removed',
+                    metadata={'contact_id': str(contact.id)}
+                )
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'message': 'Emergency contact removed successfully'
+                })
+            except EmergencyContact.DoesNotExist:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Contact not found'
+                }, status=404)
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_location(request):
+    """API endpoint to update user location"""
+    try:
+        data = json.loads(request.body)
+        username = data.get('username')
+        latitude = data.get('latitude')
+        longitude = data.get('longitude')
+        address = data.get('address', '')
+        accuracy = data.get('accuracy')
+        
+        if not all([username, latitude, longitude]):
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Username, latitude, and longitude are required'
+            }, status=400)
+        
+        try:
+            user_profile = UserProfile.objects.get(username=username)
+            
+            location = UserLocation.objects.create(
+                user_profile=user_profile,
+                latitude=latitude,
+                longitude=longitude,
+                address=address,
+                accuracy=accuracy
+            )
+            
+            # Log location update activity
+            UserActivity.objects.create(
+                user_profile=user_profile,
+                activity_type='location_updated',
+                description=f'Location updated to {latitude}, {longitude}',
+                metadata={'latitude': latitude, 'longitude': longitude, 'address': address}
+            )
+            
+            return JsonResponse({
+                'status': 'success',
+                'message': 'Location updated successfully',
+                'location': {
+                    'id': str(location.id),
+                    'latitude': float(location.latitude),
+                    'longitude': float(location.longitude),
+                    'address': location.address,
+                    'accuracy': location.accuracy,
+                    'timestamp': location.timestamp.isoformat()
+                }
+            })
+        except UserProfile.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'User not found'
+            }, status=404)
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def user_activities(request):
+    """API endpoint to get user activities"""
+    try:
+        username = request.GET.get('username')
+        limit = int(request.GET.get('limit', 50))
+        
+        if not username:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Username is required'
+            }, status=400)
+        
+        try:
+            user_profile = UserProfile.objects.get(username=username)
+            activities = []
+            
+            for activity in user_profile.activities.all()[:limit]:
+                activities.append({
+                    'id': str(activity.id),
+                    'activity_type': activity.activity_type,
+                    'description': activity.description,
+                    'metadata': activity.metadata,
+                    'timestamp': activity.timestamp.isoformat()
+                })
+            
+            return JsonResponse({
+                'status': 'success',
+                'activities': activities
+            })
+        except UserProfile.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'User not found'
+            }, status=404)
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)

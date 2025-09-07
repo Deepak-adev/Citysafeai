@@ -40,6 +40,8 @@ export default function MapComponent({ activeLayer, source, destination, showRou
   const lastHotspotUpdateRef = useRef<number>(0)
   const hotspotCacheRef = useRef<any[]>([])
   const cacheTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  const isInitializingRef = useRef<boolean>(false)
+  const retryCountRef = useRef<number>(0)
 
   // Handle route display
   useEffect(() => {
@@ -48,10 +50,18 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     const L = (window as any).L
     if (!L) return
 
+    // Additional safety check for map instance
+    if (!mapInstanceRef.current || typeof mapInstanceRef.current.removeLayer !== 'function') {
+      console.log('Map instance not properly initialized for route display')
+      return
+    }
+
     // Remove existing route elements
     if (mapInstanceRef.current._routeElements) {
       mapInstanceRef.current._routeElements.forEach((element: any) => {
-        mapInstanceRef.current.removeLayer(element)
+        if (mapInstanceRef.current && typeof mapInstanceRef.current.removeLayer === 'function') {
+          mapInstanceRef.current.removeLayer(element)
+        }
       })
     }
 
@@ -73,6 +83,12 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       return
     }
 
+    // Additional safety check for map instance
+    if (!mapInstanceRef.current || typeof mapInstanceRef.current.hasLayer !== 'function') {
+      console.log('Map instance not properly initialized for patrol route display')
+      return
+    }
+
     const L = (window as any).L
     if (!L) {
       console.log('Leaflet not available for patrol route display')
@@ -80,8 +96,10 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     }
 
     // Clear existing patrol route
-    layersRef.current.patrolRoute.clearLayers()
-    console.log('Cleared existing patrol route')
+    if (layersRef.current.patrolRoute && typeof layersRef.current.patrolRoute.clearLayers === 'function') {
+      layersRef.current.patrolRoute.clearLayers()
+      console.log('Cleared existing patrol route')
+    }
 
     // Add patrol route to map
     displayPatrolRoute(L, layersRef.current.patrolRoute, patrolRoute).then(() => {
@@ -91,7 +109,8 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     })
 
     // Add patrol route layer to map if not already added
-    if (!mapInstanceRef.current.hasLayer(layersRef.current.patrolRoute)) {
+    if (mapInstanceRef.current && typeof mapInstanceRef.current.hasLayer === 'function' && 
+        !mapInstanceRef.current.hasLayer(layersRef.current.patrolRoute)) {
       layersRef.current.patrolRoute.addTo(mapInstanceRef.current)
       console.log('Patrol route layer added to map')
     } else {
@@ -108,6 +127,12 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       return
     }
 
+    // Additional safety check for map instance
+    if (!mapInstanceRef.current || typeof mapInstanceRef.current.hasLayer !== 'function') {
+      console.log('Map instance not properly initialized for police vehicle pin')
+      return
+    }
+
     const L = (window as any).L
     if (!L) {
       console.log('Leaflet not available')
@@ -115,7 +140,8 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     }
 
     // Ensure police vehicle layer is added to map
-    if (!mapInstanceRef.current.hasLayer(layersRef.current.policeVehicle)) {
+    if (mapInstanceRef.current && typeof mapInstanceRef.current.hasLayer === 'function' && 
+        !mapInstanceRef.current.hasLayer(layersRef.current.policeVehicle)) {
       layersRef.current.policeVehicle.addTo(mapInstanceRef.current)
       console.log('Police vehicle layer added to map')
     }
@@ -138,6 +164,12 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       return
     }
 
+    // Additional safety check for map instance
+    if (!mapInstanceRef.current || typeof mapInstanceRef.current.hasLayer !== 'function') {
+      console.log('Map instance not properly initialized for role-based paths')
+      return
+    }
+
     const L = (window as any).L
     if (!L) {
       console.log('Leaflet not available for role-based paths')
@@ -145,8 +177,10 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     }
 
     // Clear existing role-based paths
-    layersRef.current.roleBasedPaths.clearLayers()
-    console.log('Cleared existing role-based paths')
+    if (layersRef.current.roleBasedPaths && typeof layersRef.current.roleBasedPaths.clearLayers === 'function') {
+      layersRef.current.roleBasedPaths.clearLayers()
+      console.log('Cleared existing role-based paths')
+    }
 
     // Add role-based paths based on user role
     if (userRole === 'police') {
@@ -166,7 +200,8 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     }
 
     // Add role-based paths layer to map
-    if (!mapInstanceRef.current.hasLayer(layersRef.current.roleBasedPaths)) {
+    if (mapInstanceRef.current && typeof mapInstanceRef.current.hasLayer === 'function' && 
+        !mapInstanceRef.current.hasLayer(layersRef.current.roleBasedPaths)) {
       layersRef.current.roleBasedPaths.addTo(mapInstanceRef.current)
       console.log('Role-based paths layer added to map')
     } else {
@@ -176,8 +211,40 @@ export default function MapComponent({ activeLayer, source, destination, showRou
 
   useEffect(() => {
     if (typeof window === "undefined") return
+    
+    // Prevent multiple initializations
+    if (isInitializingRef.current) {
+      console.log('Map initialization already in progress, skipping...')
+      return
+    }
+
+    // Check if map is already initialized and working
+    if (mapInstanceRef.current && mapRef.current && !(mapRef.current as any)._leaflet_id) {
+      console.log('Map already initialized and working, skipping...')
+      return
+    }
 
     const loadLeaflet = async () => {
+      // Ensure map container exists before proceeding
+      if (!mapRef.current) {
+        if (retryCountRef.current < 10) { // Max 10 retries (1 second total)
+          retryCountRef.current++
+          console.log(`Map container not available, retrying in 100ms... (attempt ${retryCountRef.current}/10)`)
+          setTimeout(() => {
+            if (mapRef.current) {
+              loadLeaflet()
+            } else {
+              loadLeaflet() // Will retry or give up based on retry count
+            }
+          }, 100)
+        } else {
+          console.log('Map container still not available after 10 retries, skipping initialization')
+          isInitializingRef.current = false
+          retryCountRef.current = 0
+        }
+        return
+      }
+
       // Check if Leaflet is already loaded
       if ((window as any).L) {
         await initializeMap((window as any).L)
@@ -209,6 +276,12 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         const routingScript = document.createElement("script")
         routingScript.src = "https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.min.js"
         routingScript.onload = async () => {
+          // Check if container still exists after script loading
+          if (!mapRef.current) {
+            console.log('Map container no longer available after script loading')
+            isInitializingRef.current = false
+            return
+          }
           await initializeMap((window as any).L)
         }
         document.head.appendChild(routingScript)
@@ -218,7 +291,29 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     }
 
     const initializeMap = async (L: any) => {
-      if (!mapRef.current || mapInstanceRef.current) return
+      if (!mapRef.current || isInitializingRef.current) return
+
+      isInitializingRef.current = true
+      console.log('Starting map initialization...')
+
+      // Check if the map container already has a map instance
+      if ((mapRef.current as any)._leaflet_id) {
+        console.log('Map container already initialized, removing existing map')
+        // Remove existing map instance
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.remove()
+          mapInstanceRef.current = null
+        }
+        // Clear the leaflet ID from the container
+        delete (mapRef.current as any)._leaflet_id
+      }
+
+      // Additional check: if mapInstanceRef already exists, clean it up
+      if (mapInstanceRef.current) {
+        console.log('Cleaning up existing map instance')
+        mapInstanceRef.current.remove()
+        mapInstanceRef.current = null
+      }
 
       // Load routing plugin
       const routingControl = L.Routing.control({
@@ -250,14 +345,32 @@ export default function MapComponent({ activeLayer, source, destination, showRou
           console.log('Using default location for map initialization:', error)
         }
 
+        // Double-check that the container exists and is clean before initializing
+        if (!mapRef.current) {
+          console.log('Map container not found, cannot initialize map')
+          throw new Error('Map container not found')
+        }
+
+        if ((mapRef.current as any)._leaflet_id) {
+          console.log('Container still has leaflet_id, clearing it')
+          delete (mapRef.current as any)._leaflet_id
+        }
+
         // Initialize map with current location or default
         const map = L.map(mapRef.current).setView(initialCoords, initialZoom)
         return map
       }
 
       // Initialize map
-      const map = await initializeMapWithLocation()
-      mapInstanceRef.current = map
+      let map: any
+      try {
+        map = await initializeMapWithLocation()
+        mapInstanceRef.current = map
+      } catch (error) {
+        console.error('Failed to initialize map:', error)
+        isInitializingRef.current = false
+        return
+      }
 
       // Add OpenStreetMap tiles
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -286,10 +399,14 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       }
 
       // Add demo data for each layer
-      await setupEnhancedDemoLayers(L, layersRef.current)
-      
-      // Load approved public reports as alerts
-      loadApprovedReports(L, layersRef.current)
+      if (layersRef.current) {
+        await setupEnhancedDemoLayers(L, layersRef.current)
+        
+        // Load approved public reports as alerts
+        loadApprovedReports(L, layersRef.current)
+      } else {
+        console.log('Layers not initialized, skipping demo data setup')
+      }
 
         // Add default heatmap layer to map
         if (layersRef.current.heatmap) {
@@ -300,12 +417,16 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         }
 
         // Center map on current location if available
-        if (navigator.geolocation) {
+        if (navigator.geolocation && map) {
           navigator.geolocation.getCurrentPosition(
             (position) => {
-              const userLocation = [position.coords.latitude, position.coords.longitude] as [number, number]
-              map.setView(userLocation, 13)
-              console.log('Map centered on user location:', userLocation)
+              if (map && map.setView) {
+                const userLocation = [position.coords.latitude, position.coords.longitude] as [number, number]
+                map.setView(userLocation, 13)
+                console.log('Map centered on user location:', userLocation)
+              } else {
+                console.log('Map instance not available for centering')
+              }
             },
             (error) => {
               console.log('Could not get location for map centering:', error)
@@ -320,19 +441,51 @@ export default function MapComponent({ activeLayer, source, destination, showRou
 
       // Start automatic hotspot refresh
       startAutomaticHotspotRefresh()
+      
+      // Reset initialization flag and retry count
+      isInitializingRef.current = false
+      retryCountRef.current = 0
+      console.log('Map initialization completed successfully')
     }
 
     loadLeaflet()
 
     // Cleanup function
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove()
-        mapInstanceRef.current = null
-      }
+      console.log('Map component cleanup started')
+      
+      // Clear timeout
       if (cacheTimeoutRef.current) {
         clearTimeout(cacheTimeoutRef.current)
+        cacheTimeoutRef.current = null
       }
+      
+      // Remove map instance
+      if (mapInstanceRef.current) {
+        console.log('Removing map instance')
+        try {
+          mapInstanceRef.current.remove()
+        } catch (error) {
+          console.log('Error removing map instance:', error)
+        }
+        mapInstanceRef.current = null
+      }
+      
+      // Clear the leaflet ID from the container if it exists
+      if (mapRef.current && (mapRef.current as any)._leaflet_id) {
+        console.log('Clearing leaflet ID from container')
+        delete (mapRef.current as any)._leaflet_id
+      }
+      
+      // Clear layers reference
+      if (layersRef.current) {
+        layersRef.current = {}
+      }
+      
+      // Reset initialization flag and retry count
+      isInitializingRef.current = false
+      retryCountRef.current = 0
+      console.log('Map component cleanup completed')
     }
   }, [])
 
@@ -349,7 +502,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       const shouldRefresh = activeLayer === 'heatmap' || 
                            (now - lastHotspotUpdateRef.current) > 5 * 60 * 1000
 
-      if (shouldRefresh && !isLoadingHotspots) {
+      if (shouldRefresh && !isLoadingHotspots && layersRef.current) {
         setIsLoadingHotspots(true)
         try {
           await setupEnhancedDemoLayers(L, layersRef.current)
@@ -375,17 +528,26 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     const updateLayers = async () => {
       if (!mapInstanceRef.current || !layersRef.current) return
 
+      // Additional safety check for map instance
+      if (!mapInstanceRef.current || typeof mapInstanceRef.current.hasLayer !== 'function') {
+        console.log('Map instance not properly initialized for layer updates')
+        return
+      }
+
       // Remove all layers first
       Object.values(layersRef.current).forEach((layer: any) => {
-        if (mapInstanceRef.current.hasLayer(layer)) {
+        if (mapInstanceRef.current && typeof mapInstanceRef.current.hasLayer === 'function' && 
+            mapInstanceRef.current.hasLayer(layer)) {
           mapInstanceRef.current.removeLayer(layer)
         }
       })
 
       // Recreate layers with fresh data
       const L = (window as any).L
-      if (L) {
-        layersRef.current.alerts.clearLayers()
+      if (L && layersRef.current) {
+        if (layersRef.current.alerts && typeof layersRef.current.alerts.clearLayers === 'function') {
+          layersRef.current.alerts.clearLayers()
+        }
         await setupEnhancedDemoLayers(L, layersRef.current)
         loadApprovedReports(L, layersRef.current)
       }
@@ -393,15 +555,18 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       // Add active layer
       if (activeLayer && layersRef.current[activeLayer]) {
         console.log(`Adding ${activeLayer} layer to map`)
-        layersRef.current[activeLayer].addTo(mapInstanceRef.current)
-        console.log(`Layer ${activeLayer} added successfully`)
+        if (mapInstanceRef.current && typeof mapInstanceRef.current.addLayer === 'function') {
+          layersRef.current[activeLayer].addTo(mapInstanceRef.current)
+          console.log(`Layer ${activeLayer} added successfully`)
+        }
       } else {
         console.log(`Layer ${activeLayer} not found or map not ready`)
       }
 
       // Always add police vehicle layer (if it exists and has content)
       if (layersRef.current.policeVehicle && layersRef.current.policeVehicle.getLayers().length > 0) {
-        if (!mapInstanceRef.current.hasLayer(layersRef.current.policeVehicle)) {
+        if (mapInstanceRef.current && typeof mapInstanceRef.current.hasLayer === 'function' && 
+            !mapInstanceRef.current.hasLayer(layersRef.current.policeVehicle)) {
           layersRef.current.policeVehicle.addTo(mapInstanceRef.current)
           console.log('Police vehicle layer added to map')
         }
@@ -409,7 +574,8 @@ export default function MapComponent({ activeLayer, source, destination, showRou
 
       // Always add role-based paths layer (if it exists and has content)
       if (layersRef.current.roleBasedPaths && layersRef.current.roleBasedPaths.getLayers().length > 0) {
-        if (!mapInstanceRef.current.hasLayer(layersRef.current.roleBasedPaths)) {
+        if (mapInstanceRef.current && typeof mapInstanceRef.current.hasLayer === 'function' && 
+            !mapInstanceRef.current.hasLayer(layersRef.current.roleBasedPaths)) {
           layersRef.current.roleBasedPaths.addTo(mapInstanceRef.current)
           console.log('Role-based paths layer added to map')
         }
@@ -425,7 +591,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       if (!mapInstanceRef.current || !layersRef.current || activeLayer !== 'alerts') return
       
       const L = (window as any).L
-      if (L) {
+      if (L && layersRef.current && layersRef.current.alerts) {
         layersRef.current.alerts.clearLayers()
         await setupEnhancedDemoLayers(L, layersRef.current)
         loadApprovedReports(L, layersRef.current)
@@ -436,7 +602,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       if (!mapInstanceRef.current || !layersRef.current) return
       
       const L = (window as any).L
-      if (L && !isLoadingHotspots) {
+      if (L && !isLoadingHotspots && layersRef.current) {
         setIsLoadingHotspots(true)
         try {
           await setupEnhancedDemoLayers(L, layersRef.current)
@@ -480,6 +646,12 @@ export default function MapComponent({ activeLayer, source, destination, showRou
 }
 
 async function setupEnhancedDemoLayers(L: any, layers: any, useCache: boolean = true) {
+  // Check if layers object exists
+  if (!layers) {
+    console.log('Layers object not available, skipping demo layers setup')
+    return
+  }
+
   let crimeHotspots: any[] = []
   
   console.log('Setting up enhanced demo layers...')
@@ -1041,6 +1213,12 @@ async function setupEnhancedDemoLayers(L: any, layers: any, useCache: boolean = 
 }
 
 function loadApprovedReports(L: any, layers: any) {
+  // Check if layers and alerts layer exist
+  if (!layers || !layers.alerts) {
+    console.log('Layers or alerts layer not available, skipping approved reports loading')
+    return
+  }
+
   const reports = JSON.parse(localStorage.getItem("publicReports") || "[]")
   const approvedReports = reports.filter((report: any) => report.status === "approved")
   
