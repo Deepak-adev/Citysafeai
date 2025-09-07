@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Route Planner</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        .container { padding: 16px; }
+        form { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+        input[type=text] { padding: 8px; width: 260px; }
+        button { padding: 8px 12px; }
+        #map { height: 70vh; width: 100%; border-top: 1px solid #ddd; }
+        .error { color: #b00020; margin: 8px 0; }
+    </style>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h2>Route Planner</h2>
+        <form method="post">
+            {% csrf_token %}
+            <input type="text" name="source" placeholder="Source" value="{{ source }}" required>
+            <input type="text" name="destination" placeholder="Destination" value="{{ destination }}" required>
+            <button type="submit">Get Route</button>
+        </form>
+
+        {% if error %}
+            <div class="error">{{ error }}</div>
+        {% endif %}
+
+        <div id="map"></div>
+    </div>
+
+    <script>
+        const source = {{ source|default:""|safe|json_script:"src_data" }};
+        const destination = {{ destination|default:""|safe|json_script:"dst_data" }};
+    </script>
+    <script>
+        let map = L.map('map').setView([12.5, 78.5], 6);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+        const routeCoords = {{ route_coords_json|safe }};
+
+        if (routeCoords) {
+            const latlngs = routeCoords.map(pt => L.latLng(pt[0], pt[1]));
+            const polyline = L.polyline(latlngs, { color: 'blue', weight: 4 }).addTo(map);
+            map.fitBounds(polyline.getBounds(), { padding: [30, 30] });
+        }
+    </script>
+</body>
+</html>
+
+

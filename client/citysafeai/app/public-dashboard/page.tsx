@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import LocationTracker from "@/components/location-tracker"
@@ -8,6 +8,8 @@ import HotspotMonitor from "@/components/hotspot-monitor"
 import SOSMonitor from "@/components/sos-monitor"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import dynamic from "next/dynamic"
+const RouteMap = dynamic(() => import("@/components/route-map"), { ssr: false })
 import { 
   Map, 
   Shield, 
@@ -17,7 +19,6 @@ import {
   LogOut,
   User,
   Home,
-  Navigation,
   Eye,
   BarChart3,
   Route,
@@ -32,6 +33,8 @@ export default function PublicDashboardPage() {
   const [isLoading, setIsLoading] = useState<boolean>(false)
   const [currentLat, setCurrentLat] = useState<number>(0)
   const [currentLng, setCurrentLng] = useState<number>(0)
+  const [showSafeRoutePlanner, setShowSafeRoutePlanner] = useState<boolean>(false)
+  const plannerRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -69,24 +72,25 @@ export default function PublicDashboardPage() {
   }
 
   const handleFeatureClick = (feature: string) => {
-    // Prevent multiple clicks
     if (isLoading) return
-    
+    if (feature === 'saferoute') {
+      setShowSafeRoutePlanner(true)
+      setTimeout(() => {
+        plannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 50)
+      return
+    }
     setIsLoading(true)
-    
-    // Store the selected feature and redirect to the main dashboard
     localStorage.setItem("selectedFeature", feature)
-    
-    // Use setTimeout to ensure the state is set before navigation
-    setTimeout(() => {
-      router.push("/dashboard")
-    }, 100)
+    setTimeout(() => { router.push("/dashboard") }, 100)
   }
 
   const handleLocationUpdate = (lat: number, lng: number) => {
     setCurrentLat(lat)
     setCurrentLng(lng)
   }
+
+  // Safe routing handled inside RouteMap component's built-in sidebar UI
 
   const features = [
     {
@@ -289,6 +293,17 @@ export default function PublicDashboardPage() {
             )
           })}
         </div>
+
+        {/* Safe Route Map Only */}
+        {showSafeRoutePlanner && (
+        <div ref={plannerRef} className="mt-16">
+          <Card className="p-0 h-[640px] overflow-hidden bg-white/70 backdrop-blur-sm border-slate-200/50 shadow-lg">
+            <div className="h-[640px]">
+              <RouteMap />
+            </div>
+          </Card>
+        </div>
+        )}
 
         {/* Emergency Contact Info */}
         <div className="mt-20">

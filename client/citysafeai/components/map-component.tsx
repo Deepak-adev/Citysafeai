@@ -1403,10 +1403,10 @@ function geocodeAndRoute(L: any, map: any, source: string, destination: string) 
   
   // Get crime hotspots to avoid
   const crimeHotspots = getCrimeHotspots()
-  
-  // Create safe route avoiding crime areas
+
+  // Create safe route avoiding crime areas (evaluate multiple candidates)
   const safeWaypoints = calculateSafeRoute(sourceCoords, destCoords, crimeHotspots)
-  
+
   // Create simple polyline route (no external routing API needed)
   const routeLine = L.polyline(safeWaypoints, {
     color: '#22c55e',
@@ -1459,54 +1459,96 @@ function getCrimeHotspots() {
   ]
 }
 
-function calculateSafeRoute(source: number[], destination: number[], crimeHotspots: any[]) {
-  const waypoints = [source]
-  
-  // Simple safe routing: add intermediate waypoints to avoid high-crime areas
-  const midLat = (source[0] + destination[0]) / 2
-  const midLng = (source[1] + destination[1]) / 2
-  
-  // Check if direct route passes through high-crime areas
-  const directRouteRisk = crimeHotspots.some(hotspot => {
-    if (hotspot.intensity < 0.8) return false
-    
-    // Simple distance check to crime hotspot
-    const distToHotspot = Math.sqrt(
-      Math.pow(midLat - hotspot.lat, 2) + Math.pow(midLng - hotspot.lng, 2)
-    )
-    
-    return distToHotspot < 0.01 // Approximately 1km
-  })
-  
-  if (directRouteRisk) {
-    // Add safe intermediate waypoints
-    const safeOffset = 0.008 // Offset to avoid crime areas
-    
-    // Try different safe routes
-    const safeRoutes = [
-      [midLat + safeOffset, midLng],
-      [midLat - safeOffset, midLng],
-      [midLat, midLng + safeOffset],
-      [midLat, midLng - safeOffset]
-    ]
-    
-    // Pick the safest intermediate point
-    const safestPoint = safeRoutes.reduce((safest, point) => {
-      const risk = crimeHotspots.reduce((totalRisk, hotspot) => {
-        const dist = Math.sqrt(
-          Math.pow(point[0] - hotspot.lat, 2) + Math.pow(point[1] - hotspot.lng, 2)
-        )
-        return totalRisk + (hotspot.intensity / (dist + 0.001))
-      }, 0)
-      
-      return risk < safest.risk ? { point, risk } : safest
-    }, { point: safeRoutes[0], risk: Infinity })
-    
-    waypoints.push(safestPoint.point)
+// Distance helpers (meters)
+function toRad(deg: number) { return deg * Math.PI / 180 }
+function haversineMeters(a: number[], b: number[]) {
+  const R = 6371000
+  const dLat = toRad(b[0] - a[0])
+  const dLon = toRad(b[1] - a[1])
+  const lat1 = toRad(a[0])
+  const lat2 = toRad(b[0])
+  const h = Math.sin(dLat/2)**2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon/2)**2
+  return 2 * R * Math.asin(Math.sqrt(h))
+}
+function pointToSegmentMeters(p: number[], a: number[], b: number[]) {
+  // Convert lat/lng to simple meters using equirectangular approximation near segment
+  const latRad = toRad((a[0] + b[0]) / 2)
+  const mPerDegLat = 111132.92 - 559.82 * Math.cos(2*latRad) + 1.175 * Math.cos(4*latRad)
+  const mPerDegLng = 111412.84 * Math.cos(latRad) - 93.5 * Math.cos(3*latRad)
+  const ax = (a[1]) * mPerDegLng
+  const ay = (a[0]) * mPerDegLat
+  const bx = (b[1]) * mPerDegLng
+  const by = (b[0]) * mPerDegLat
+  const px = (p[1]) * mPerDegLng
+  const py = (p[0]) * mPerDegLat
+  const vx = bx - ax, vy = by - ay
+  const wx = px - ax, wy = py - ay
+  const c1 = vx*wx + vy*wy
+  const c2 = vx*vx + vy*vy
+  let t = c2 === 0 ? 0 : c1 / c2
+  t = Math.max(0, Math.min(1, t))
+  const cx = ax + t * vx
+  const cy = ay + t * vy
+  const dx = px - cx
+  const dy = py - cy
+  return Math.sqrt(dx*dx + dy*dy)
+}
+
+function routeIntersectionsMeters(route: number[][], hotspots: any[]) {
+  let intersections = 0
+  for (let i = 0; i < route.length - 1; i++) {
+    const a = route[i]
+    const b = route[i+1]
+    for (const h of hotspots) {
+      const d = pointToSegmentMeters([h.lat, h.lng], a, b)
+      if (d <= (h.radius || 800)) { intersections++ }
+    }
   }
-  
-  waypoints.push(destination)
-  return waypoints
+  return intersections
+}
+
+function routeRiskScore(route: number[][], hotspots: any[]) {
+  // Score by intersections and distance-weighted risk
+  const intersections = routeIntersectionsMeters(route, hotspots)
+  let proximityRisk = 0
+  for (let i = 0; i < route.length - 1; i++) {
+    const mid = [(route[i][0] + route[i+1][0]) / 2, (route[i][1] + route[i+1][1]) / 2]
+    for (const h of hotspots) {
+      const d = haversineMeters(mid, [h.lat, h.lng])
+      proximityRisk += (h.intensity || 1) / (d + 1)
+    }
+  }
+  return intersections * 1e6 + proximityRisk // intersections dominate
+}
+
+function calculateSafeRoute(source: number[], destination: number[], crimeHotspots: any[]) {
+  // Candidate routes: direct, offset at mid, thirds, and S-shape variants
+  const candidates: number[][][] = []
+  const direct = [source, destination]
+  candidates.push(direct)
+
+  const mid = [(source[0]+destination[0])/2, (source[1]+destination[1])/2]
+  const offsets = [0.008, -0.008, 0.012, -0.012]
+  for (const off of offsets) {
+    candidates.push([source, [mid[0]+off, mid[1]], destination])
+    candidates.push([source, [mid[0], mid[1]+off], destination])
+  }
+
+  const third1 = [(2*source[0]+destination[0])/3, (2*source[1]+destination[1])/3]
+  const third2 = [(source[0]+2*destination[0])/3, (source[1]+2*destination[1])/3]
+  for (const off of offsets) {
+    candidates.push([source, [third1[0]+off, third1[1]], [third2[0]-off, third2[1]], destination])
+    candidates.push([source, [third1[0], third1[1]+off], [third2[0], third2[1]-off], destination])
+  }
+
+  // Evaluate safety and pick best
+  let best = candidates[0]
+  let bestScore = routeRiskScore(best, crimeHotspots)
+  for (const c of candidates.slice(1)) {
+    const s = routeRiskScore(c, crimeHotspots)
+    if (s < bestScore) { best = c; bestScore = s }
+  }
+  return best
 }
 
 function calculateDistance(coord1: number[], coord2: number[]) {

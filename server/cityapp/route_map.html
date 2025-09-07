@@ -1,141 +1,356 @@
+
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    
-    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
-    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
-    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
-    
-            <meta name="viewport" content="width=device-width,
-                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-            <style>
-                #map_677c14e80f6da114403ba51117eb1071 {
-                    position: relative;
-                    width: 100.0%;
-                    height: 100.0%;
-                    left: 0.0%;
-                    top: 0.0%;
-                }
-                .leaflet-container { font-size: 1rem; }
-            </style>
-
-            <style>html, body {
-                width: 100%;
-                height: 100%;
-                margin: 0;
-                padding: 0;
-            }
-            </style>
-
-            <style>#map {
-                position:absolute;
-                top:0;
-                bottom:0;
-                right:0;
-                left:0;
-                }
-            </style>
-
-            <script>
-                L_NO_TOUCH = false;
-                L_DISABLE_3D = false;
-            </script>
-
-        
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeRoute - Crime Prevention System</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+        #map { height: 100vh; width: 100%; }
+        .sidebar {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            z-index: 1000;
+            width: 250px;
+        }
+        .route-btn {
+            background: #ffa500;
+            color: black;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+        }
+        .location-input {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 3px;
+        }
+    </style>
 </head>
 <body>
-    
-    
-            <div class="folium-map" id="map_677c14e80f6da114403ba51117eb1071" ></div>
+    <div id="map"></div>
+    <div class="sidebar">
+        <h3>SafeRoute - Public</h3>
+        <button class="route-btn" onclick="getCurrentLocation()" id="locationBtn">Get Current Location</button>
+        <input type="text" class="location-input" id="to" placeholder="To location" value="Coimbatore">
+        <button class="route-btn" onclick="findRoute()">Find Safe Route</button>
+        <button class="route-btn" onclick="toggleAddWaypoints()" id="addWpBtn">Add Waypoints (click map)</button>
+        <button class="route-btn" onclick="clearWaypoints()" id="clearWpBtn">Clear Waypoints</button>
+        <button class="route-btn" onclick="toggleView()" id="viewBtn">Show Crime Zones</button>
+        <div id="status" style="margin-top: 10px; font-size: 12px;">Ready</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+    <script>
+        let map;
+        let routeControl;
+        let crimeLayer;
+        let heatLayer;
+        let crimeData = [];
+        let showZones = false;
+        let currentLocation = null;
+        let isAddingWaypoint = false;
+        let manualWaypoints = [];
+        let waypointMarkers = [];
+
+        function initMap() {
+            map = L.map('map').setView([12.5, 78.5], 7);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+            map.on('click', function(e) {
+                if (!isAddingWaypoint) return;
+                const latlng = [e.latlng.lat, e.latlng.lng];
+                manualWaypoints.push(latlng);
+
+                const marker = L.marker(latlng, { draggable: true }).addTo(map)
+                    .bindPopup(`Waypoint ${manualWaypoints.length}`)
+                    .openPopup();
+
+                marker.on('dragend', function(ev) {
+                    const ll = ev.target.getLatLng();
+                    const idx = waypointMarkers.indexOf(ev.target);
+                    if (idx >= 0) {
+                        manualWaypoints[idx] = [ll.lat, ll.lng];
+                    }
+                });
+
+                waypointMarkers.push(marker);
+            });
+        }
         
-</body>
-<script>
-    
-    
-            var map_677c14e80f6da114403ba51117eb1071 = L.map(
-                "map_677c14e80f6da114403ba51117eb1071",
-                {
-                    center: [12.042752700000001, 78.61651425],
-                    crs: L.CRS.EPSG3857,
-                    ...{
-  "zoom": 6,
-  "zoomControl": true,
-  "preferCanvas": false,
-}
-
-                }
-            );
-
+        function getCurrentLocation() {
+            const btn = document.getElementById('locationBtn');
+            const status = document.getElementById('status');
             
+            btn.innerHTML = 'Getting location...';
+            status.innerHTML = 'Getting your location...';
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    function(position) {
+                        currentLocation = [position.coords.latitude, position.coords.longitude];
+                        map.setView(currentLocation, 12);
+                        
+                        // Add marker for current location
+                        L.marker(currentLocation).addTo(map)
+                            .bindPopup('Your Current Location')
+                            .openPopup();
+                        
+                        btn.innerHTML = 'Current Location Set';
+                        btn.style.background = '#32cd32';
+                        status.innerHTML = 'Current location found';
+                    },
+                    function(error) {
+                        btn.innerHTML = 'Location Failed';
+                        status.innerHTML = 'Could not get location';
+                    }
+                );
+            } else {
+                btn.innerHTML = 'Not Supported';
+                status.innerHTML = 'Geolocation not supported';
+            }
+        }
 
-        
-    
-            var tile_layer_348d5bc2eae170c6fba58c29eed3cbaf = L.tileLayer(
-                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                {
-  "minZoom": 0,
-  "maxZoom": 19,
-  "maxNativeZoom": 19,
-  "noWrap": false,
-  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
-  "subdomains": "abc",
-  "detectRetina": false,
-  "tms": false,
-  "opacity": 1,
-}
+        async function geocode(city) {
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&addressdetails=0&limit=1`);
+            const data = await response.json();
+            return data.length > 0 ? [parseFloat(data[0].lat), parseFloat(data[0].lon)] : null;
+        }
 
-            );
+        async function loadCrimeData() {
+            const response = await fetch('/api/crime-predictions/?city=TamilNadu&count=50');
+            const data = await response.json();
+            return data.status === 'success' ? data.coordinates : [];
+        }
+
+        function clearLayers() {
+            if (routeControl) map.removeControl(routeControl);
+            if (crimeLayer) map.removeLayer(crimeLayer);
+            if (heatLayer) map.removeLayer(heatLayer);
+        }
+
+        function showCrimeZones() {
+            if (crimeLayer) map.removeLayer(crimeLayer);
+            
+            crimeLayer = L.layerGroup();
+            crimeData.forEach(coord => {
+                const color = coord.risk_level === 'high' ? '#ff0000' : 
+                             coord.risk_level === 'medium' ? '#ff8c00' : '#32cd32';
+                
+                L.circle([coord.lat, coord.lng], {
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.4,
+                    radius: 10000,
+                    weight: 2
+                }).addTo(crimeLayer);
+            });
+            
+            crimeLayer.addTo(map);
+        }
+
+        function showHeatMap() {
+            if (heatLayer) map.removeLayer(heatLayer);
+            
+            const heatPoints = crimeData.map(coord => {
+                const intensity = coord.risk_level === 'high' ? 1.0 : 
+                                 coord.risk_level === 'medium' ? 0.6 : 0.3;
+                return [coord.lat, coord.lng, intensity];
+            });
+            
+            heatLayer = L.heatLayer(heatPoints, {
+                radius: 25,
+                blur: 15,
+                gradient: {0.2: 'blue', 0.4: 'lime', 0.6: 'yellow', 0.8: 'orange', 1.0: 'red'}
+            }).addTo(map);
+        }
+
+        function avoidCrimeZones(start, end) {
+            const waypoints = [L.latLng(start[0], start[1])];
+            
+            // Get ALL crime zones
+            const allZones = crimeData;
+            
+            // Create safe path by adding multiple waypoints that avoid ALL zones
+            const safeWaypoints = createSafePath(start, end, allZones);
+            waypoints.push(...safeWaypoints);
+            
+            waypoints.push(L.latLng(end[0], end[1]));
+            return waypoints;
+        }
         
-    
-            tile_layer_348d5bc2eae170c6fba58c29eed3cbaf.addTo(map_677c14e80f6da114403ba51117eb1071);
+        function getPathPoints(start, end, numPoints) {
+            const points = [];
+            for (let i = 0; i <= numPoints; i++) {
+                const ratio = i / numPoints;
+                const lat = start[0] + (end[0] - start[0]) * ratio;
+                const lng = start[1] + (end[1] - start[1]) * ratio;
+                points.push([lat, lng]);
+            }
+            return points;
+        }
         
-    
-            var marker_6a355a0319b309e62f9df9b55ccc8c51 = L.marker(
-                [13.0836939, 80.270186],
-                {
-}
-            ).addTo(map_677c14e80f6da114403ba51117eb1071);
+        function getDistance(lat1, lng1, lat2, lng2) {
+            const R = 6371; // Earth radius in km
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLng = (lng2 - lng1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                     Math.sin(dLng/2) * Math.sin(dLng/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
         
-    
-            marker_6a355a0319b309e62f9df9b55ccc8c51.bindTooltip(
-                `<div>
-                     chennai
-                 </div>`,
-                {
-  "sticky": true,
-}
-            );
+        function createSafePath(start, end, allZones) {
+            const safePoints = [];
+            
+            // Create grid of potential waypoints
+            const steps = 5;
+            const latStep = (end[0] - start[0]) / steps;
+            const lngStep = (end[1] - start[1]) / steps;
+            
+            for (let i = 1; i < steps; i++) {
+                let baseLat = start[0] + (latStep * i);
+                let baseLng = start[1] + (lngStep * i);
+                
+                // Try different offsets to find safe point
+                let safePoint = findSafePoint(baseLat, baseLng, allZones);
+                if (safePoint) {
+                    safePoints.push(L.latLng(safePoint[0], safePoint[1]));
+                }
+            }
+            
+            return safePoints;
+        }
         
-    
-            var marker_f5f2bf226d83c5909666b009983f4aa1 = L.marker(
-                [11.0018115, 76.9628425],
-                {
-}
-            ).addTo(map_677c14e80f6da114403ba51117eb1071);
+        function findSafePoint(lat, lng, zones) {
+            // Try original point first
+            if (isPointSafe(lat, lng, zones)) {
+                return [lat, lng];
+            }
+            
+            // Try offsets in all directions
+            const offsets = [
+                [0.2, 0], [-0.2, 0], [0, 0.2], [0, -0.2],
+                [0.2, 0.2], [-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2],
+                [0.4, 0], [-0.4, 0], [0, 0.4], [0, -0.4]
+            ];
+            
+            for (let offset of offsets) {
+                const testLat = lat + offset[0];
+                const testLng = lng + offset[1];
+                if (isPointSafe(testLat, testLng, zones)) {
+                    return [testLat, testLng];
+                }
+            }
+            
+            return null;
+        }
         
-    
-            marker_f5f2bf226d83c5909666b009983f4aa1.bindTooltip(
-                `<div>
-                     coimbatore
-                 </div>`,
-                {
-  "sticky": true,
-}
-            );
-        
-    
-            var poly_line_3164aba0295e2623485b57eead1ab3b4 = L.polyline(
-                [[13.0836939, 80.270186], [11.0018115, 76.9628425]],
-                {"bubblingMouseEvents": true, "color": "blue", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "blue", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 1.0, "smoothFactor": 1.0, "stroke": true, "weight": 3}
-            ).addTo(map_677c14e80f6da114403ba51117eb1071);
-        
-</script>
+        function isPointSafe(lat, lng, zones) {
+            for (let zone of zones) {
+                const distance = getDistance(lat, lng, zone.lat, zone.lng);
+                if (distance <= 12) { // 12km buffer to ensure no intersection
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        async function findRoute() {
+            const status = document.getElementById('status');
+            
+            if (!currentLocation) {
+                status.innerHTML = 'Please get current location first';
+                return;
+            }
+            
+            status.innerHTML = 'Finding route...';
+            
+            const to = document.getElementById('to').value;
+            const toCoords = await geocode(to);
+            
+            if (!toCoords) {
+                status.innerHTML = 'Destination not found';
+                return;
+            }
+            
+            crimeData = await loadCrimeData();
+            clearLayers();
+            
+            let waypoints;
+            if (manualWaypoints.length > 0) {
+                waypoints = [
+                    L.latLng(currentLocation[0], currentLocation[1]),
+                    ...manualWaypoints.map(wp => L.latLng(wp[0], wp[1])),
+                    L.latLng(toCoords[0], toCoords[1])
+                ];
+            } else {
+                waypoints = avoidCrimeZones(currentLocation, toCoords);
+            }
+            
+            routeControl = L.Routing.control({
+                waypoints: waypoints,
+                createMarker: () => null,
+                lineOptions: {
+                    styles: [{ color: '#00ff00', weight: 4, opacity: 0.8 }]
+                }
+            }).addTo(map);
+            
+            if (showZones) {
+                showCrimeZones();
+            }
+            
+            status.innerHTML = `Safe route: Current Location → ${to}`;
+            if (isAddingWaypoint) toggleAddWaypoints();
+        }
+
+        function toggleAddWaypoints() {
+            const btn = document.getElementById('addWpBtn');
+            isAddingWaypoint = !isAddingWaypoint;
+            btn.innerHTML = isAddingWaypoint ? 'Stop Adding Waypoints' : 'Add Waypoints (click map)';
+            btn.style.background = isAddingWaypoint ? '#32cd32' : '#ffa500';
+            const status = document.getElementById('status');
+            status.innerHTML = isAddingWaypoint ? 'Click on the map to add waypoints' : 'Waypoint add stopped';
+        }
+
+        function clearWaypoints() {
+            waypointMarkers.forEach(m => map.removeLayer(m));
+            waypointMarkers = [];
+            manualWaypoints = [];
+            const status = document.getElementById('status');
+            status.innerHTML = 'Waypoints cleared';
+        }
+
+        function toggleView() {
+            const btn = document.getElementById('viewBtn');
+            showZones = !showZones;
+            
+            if (showZones) {
+                showCrimeZones();
+                btn.innerHTML = 'Hide Crime Zones';
+            } else {
+                if (crimeLayer) map.removeLayer(crimeLayer);
+                btn.innerHTML = 'Show Crime Zones';
+            }
+        }
+
+        window.onload = initMap;
+    </script>
+</body>
 </html>

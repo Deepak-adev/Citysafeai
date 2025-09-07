@@ -403,8 +403,7 @@ def calculate_distance(lat1, lng1, lat2, lng2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
 
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
+
 # New API endpoints for user management
 
 @csrf_exempt
@@ -772,9 +771,7 @@ def user_activities(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
-=======
-=======
->>>>>>> Stashed changes
+
 # Initialize geocoder
 geolocator = Nominatim(user_agent="citysafe_route_app")
 
@@ -848,6 +845,55 @@ def get_route_coordinates(request):
             "message": f"An error occurred: {str(e)}"
         })
 
+def route_page(request):
+    """Render an HTML form to collect source and destination and, if provided, display the route on a map."""
+    context = {
+        "source": request.GET.get("source", ""),
+        "destination": request.GET.get("destination", ""),
+        "route_coordinates": None,
+        "route_coords_json": "null",
+        "error": None,
+    }
+
+    try:
+        # Support both GET with query params and POST form submissions
+        if request.method == "POST":
+            source = request.POST.get("source", "").strip()
+            destination = request.POST.get("destination", "").strip()
+        else:
+            source = request.GET.get("source", "").strip()
+            destination = request.GET.get("destination", "").strip()
+
+        if source and destination:
+            src_location = geolocator.geocode(source)
+            dest_location = geolocator.geocode(destination)
+
+            if not src_location or not dest_location:
+                context["error"] = "Could not find one of the locations."
+            else:
+                route_coords = get_route_coords(
+                    src_location.latitude,
+                    src_location.longitude,
+                    dest_location.latitude,
+                    dest_location.longitude,
+                )
+
+                if not route_coords:
+                    context["error"] = "Could not generate route coordinates."
+                else:
+                    # Convert [lon, lat] pairs to [lat, lon] for Leaflet
+                    coords_latlng = [[pt[1], pt[0]] for pt in route_coords]
+                    context["route_coordinates"] = coords_latlng
+                    context["route_coords_json"] = json.dumps(coords_latlng)
+
+        context["source"] = source
+        context["destination"] = destination
+
+    except Exception as e:
+        context["error"] = f"An error occurred: {str(e)}"
+
+    return render(request, "cityapp/route.html", context)
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def get_patrol_route_coordinates(request):
@@ -900,7 +946,4 @@ def get_patrol_route_coordinates(request):
             "status": "error",
             "message": f"An error occurred: {str(e)}"
         })
-<<<<<<< Updated upstream
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
+
