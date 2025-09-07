@@ -23,6 +23,8 @@ import {
   Plus,
   Badge
 } from "lucide-react"
+import dynamic from "next/dynamic"
+const PolicePatrolMap = dynamic(() => import("@/components/police-patrol-map"), { ssr: false })
 
 export default function PoliceDashboardPage() {
   const [username, setUsername] = useState<string>("")
@@ -288,6 +290,15 @@ export default function PoliceDashboardPage() {
               </Card>
             )
           })}
+        </div>
+
+        {/* Patrol Planner Map */}
+        <div className="mt-10">
+          <Card className="p-0 h-[640px] overflow-hidden bg-white/70 backdrop-blur-sm border-slate-200/50 shadow-lg">
+            <div className="h-[640px]">
+              <PolicePatrolMap />
+            </div>
+          </Card>
         </div>
 
         {/* Recent Activity */}

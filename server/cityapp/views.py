@@ -12,6 +12,7 @@ from .telegram_service import TelegramService
 import json
 import time
 from datetime import datetime, timedelta
+from geopy.geocoders import Nominatim
 
 # Mock Police ID Database
 VALID_POLICE_IDS = {
@@ -401,10 +402,7 @@ def calculate_distance(lat1, lng1, lat2, lng2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     return R * c
 
-<<<<<<< HEAD
 
-=======
->>>>>>> 1fe3b94142b45f74d20dbf3c4922d83cc6b588cb
 # New API endpoints for user management
 
 @csrf_exempt
@@ -772,7 +770,6 @@ def user_activities(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
-<<<<<<< HEAD
 
 # Initialize geocoder
 geolocator = Nominatim(user_agent="citysafe_route_app")
@@ -949,5 +946,3 @@ def get_patrol_route_coordinates(request):
             "message": f"An error occurred: {str(e)}"
         })
 
-=======
->>>>>>> 1fe3b94142b45f74d20dbf3c4922d83cc6b588cb
