@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import LocationTracker from "@/components/location-tracker"
 import HotspotMonitor from "@/components/hotspot-monitor"
+import SOSMonitor from "@/components/sos-monitor"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { 
@@ -142,6 +143,34 @@ export default function PublicDashboardPage() {
                 <p className="text-sm font-semibold text-slate-900">Welcome, {username}</p>
                 <p className="text-xs text-slate-500 font-medium">{userLocation}</p>
               </div>
+              <Button 
+                size="sm" 
+                onClick={async () => {
+                  try {
+                    const response = await fetch('http://localhost:8000/api/send-sos/', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        username,
+                        phone: localStorage.getItem('userPhone') || 'Not provided',
+                        location: `${currentLat}, ${currentLng}`,
+                        duration_minutes: 0
+                      })
+                    })
+                    const result = await response.json()
+                    if (result.status === 'success') {
+                      alert('🚨 Emergency alert sent! Help is on the way.')
+                    } else {
+                      alert('Failed to send alert. Please try again.')
+                    }
+                  } catch (error) {
+                    alert('Error sending alert. Check your connection.')
+                  }
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white font-bold animate-pulse"
+              >
+                🚨 SOS
+              </Button>
               <Link href="/profile">
                 <Button variant="outline" size="sm" className="flex items-center space-x-2 border-slate-300 hover:border-slate-400 hover:bg-slate-50">
                   <User className="w-4 h-4" />
@@ -282,11 +311,18 @@ export default function PublicDashboardPage() {
       {/* Location Tracking Components */}
       <LocationTracker onLocationUpdate={handleLocationUpdate} />
       {currentLat !== 0 && currentLng !== 0 && (
-        <HotspotMonitor 
-          userLat={currentLat} 
-          userLng={currentLng} 
-          username={username}
-        />
+        <>
+          <HotspotMonitor 
+            userLat={currentLat} 
+            userLng={currentLng} 
+            username={username}
+          />
+          <SOSMonitor 
+            userLat={currentLat} 
+            userLng={currentLng} 
+            username={username}
+          />
+        </>
       )}
     </div>
   )

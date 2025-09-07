@@ -173,25 +173,55 @@ export default function DashboardPage() {
           <div className="flex items-center space-x-2">
 
             {userRole === "public" && (
-              <Dialog modal={true} open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    size="sm"
-                    className="bg-red-500 hover:bg-red-600 text-white"
-                  >
-                    🚨 Report Incident
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="bg-background border shadow-lg max-w-[600px] z-[9999]">
-                  <DialogHeader>
-                    <DialogTitle>Report an Incident</DialogTitle>
-                    <DialogDescription>
-                      Help keep your community safe by reporting suspicious activities
-                    </DialogDescription>
-                  </DialogHeader>
-                  <IncidentReportForm onClose={() => setIsReportModalOpen(false)} />
-                </DialogContent>
-              </Dialog>
+              <>
+                <Button 
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      const response = await fetch('http://localhost:8000/api/send-sos/', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          username,
+                          phone: localStorage.getItem('userPhone') || 'Not provided',
+                          location: 'Current location',
+                          duration_minutes: 0
+                        })
+                      })
+                      const result = await response.json()
+                      if (result.status === 'success') {
+                        alert('🚨 Emergency alert sent! Help is on the way.')
+                      } else {
+                        alert('Failed to send alert. Please try again.')
+                      }
+                    } catch (error) {
+                      alert('Error sending alert. Check your connection.')
+                    }
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white font-bold animate-pulse"
+                >
+                  🚨 SOS
+                </Button>
+                <Dialog modal={true} open={isReportModalOpen} onOpenChange={setIsReportModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      size="sm"
+                      className="bg-red-500 hover:bg-red-600 text-white"
+                    >
+                      📝 Report Incident
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="bg-background border shadow-lg max-w-[600px] z-[9999]">
+                    <DialogHeader>
+                      <DialogTitle>Report an Incident</DialogTitle>
+                      <DialogDescription>
+                        Help keep your community safe by reporting suspicious activities
+                      </DialogDescription>
+                    </DialogHeader>
+                    <IncidentReportForm onClose={() => setIsReportModalOpen(false)} />
+                  </DialogContent>
+                </Dialog>
+              </>
             )}
             <Link href="/profile">
               <Button variant="outline" size="sm" className="flex items-center space-x-2">

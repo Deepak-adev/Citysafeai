@@ -5,8 +5,10 @@ from django.views.decorators.http import require_http_methods
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.models import User
 from .services import CrimePredictionService
+from .telegram_service import TelegramService
 import json
 import time
+from datetime import datetime, timedelta
 
 # Mock Police ID Database
 VALID_POLICE_IDS = {
@@ -239,3 +241,96 @@ def validate_police_id(request):
             'status': 'error',
             'message': str(e)
         }, status=500)
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def send_sos_alert(request):
+    """API endpoint to send SOS alert via Telegram"""
+    try:
+        data = json.loads(request.body)
+        username = data.get('username')
+        phone = data.get('phone')
+        location = data.get('location')
+        duration_minutes = data.get('duration_minutes', 0)
+        
+        if not all([username, phone, location]):
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Username, phone, and location are required'
+            }, status=400)
+        
+        telegram_service = TelegramService()
+        result = telegram_service.send_sos_alert(username, phone, location, duration_minutes)
+        
+        response = JsonResponse(result)
+        response['Access-Control-Allow-Origin'] = '*'
+        return response
+        
+    except Exception as e:
+        error_response = JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+        error_response['Access-Control-Allow-Origin'] = '*'
+        return error_response
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def check_hotspot_status(request):
+    """API endpoint to check if user is in hotspot and trigger SOS if needed"""
+    try:
+        data = json.loads(request.body)
+        user_lat = float(data.get('lat'))
+        user_lng = float(data.get('lng'))
+        username = data.get('username')
+        phone = data.get('phone')
+        
+        # Get crime hotspots
+        api_key = "AIzaSyB5JCLElwe1mT7THvsehV0UHTyUQPlfjrE"
+        service = CrimePredictionService(api_key)
+        coordinates = service.generate_crime_hotspots('Chennai', 50)
+        
+        # Check if user is in any high-risk hotspot (within 500m)
+        in_hotspot = False
+        hotspot_info = None
+        
+        for coord in coordinates:
+            if coord.get('risk_level') == 'high':
+                distance = calculate_distance(user_lat, user_lng, coord['lat'], coord['lng'])
+                if distance <= 0.5:  # Within 500 meters
+                    in_hotspot = True
+                    hotspot_info = coord
+                    break
+        
+        response_data = {
+            'in_hotspot': in_hotspot,
+            'hotspot_info': hotspot_info,
+            'user_location': f"{user_lat}, {user_lng}"
+        }
+        
+        response = JsonResponse(response_data)
+        response['Access-Control-Allow-Origin'] = '*'
+        return response
+        
+    except Exception as e:
+        error_response = JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        }, status=500)
+        error_response['Access-Control-Allow-Origin'] = '*'
+        return error_response
+
+def calculate_distance(lat1, lng1, lat2, lng2):
+    """Calculate distance between two coordinates in kilometers"""
+    import math
+    
+    R = 6371  # Earth's radius in km
+    dlat = math.radians(lat2 - lat1)
+    dlng = math.radians(lng2 - lng1)
+    
+    a = (math.sin(dlat/2) * math.sin(dlat/2) + 
+         math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * 
+         math.sin(dlng/2) * math.sin(dlng/2))
+    
+    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
+    return R * c
