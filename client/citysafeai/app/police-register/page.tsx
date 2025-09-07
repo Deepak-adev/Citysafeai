@@ -164,22 +164,23 @@ export default function PoliceRegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center px-6">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center space-y-4">
-          <Link href="/police-login" className="inline-flex items-center text-blue-700 text-sm font-medium">
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
+          <Link href="/police-login" className="inline-flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium mb-6">
             <ChevronLeft className="w-4 h-4 mr-2" />
             Back to Login
           </Link>
           
-          <Shield className="w-12 h-12 text-blue-600 mx-auto" />
-          <h1 className="text-3xl font-bold">Police Registration</h1>
+          <Shield className="w-12 h-12 text-blue-600 mx-auto mb-4" />
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">Police Registration</h1>
+          <p className="text-gray-600">Register with your Police ID</p>
         </div>
 
-        <Card>
+        <Card className="bg-white border border-gray-200 shadow-sm">
           <CardHeader>
-            <CardTitle>Create Account</CardTitle>
-            <CardDescription>Register with your Police ID</CardDescription>
+            <CardTitle className="text-xl text-gray-900">Create Account</CardTitle>
+            <CardDescription className="text-gray-600">Register with your Police ID</CardDescription>
           </CardHeader>
           <CardContent>
             {/* Error and Success Messages */}
@@ -199,7 +200,7 @@ export default function PoliceRegisterPage() {
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="policeId" className="text-sm font-semibold text-slate-700">Police ID</Label>
+                <Label htmlFor="policeId" className="text-sm font-medium text-gray-700">Police ID</Label>
                 <Input
                   id="policeId"
                   placeholder="e.g., TN001"
@@ -211,8 +212,8 @@ export default function PoliceRegisterPage() {
                     }
                   }}
                   required
-                  className={`h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-300 text-black ${
-                    errors.policeId ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                  className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                    errors.policeId ? 'border-red-500 focus:border-red-500' : ''
                   }`}
                 />
                 {errors.policeId && (
@@ -224,7 +225,7 @@ export default function PoliceRegisterPage() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-sm font-semibold text-slate-700">Username</Label>
+                <Label htmlFor="username" className="text-sm font-medium text-gray-700">Username</Label>
                 <Input
                   id="username"
                   value={username}
@@ -235,8 +236,8 @@ export default function PoliceRegisterPage() {
                     }
                   }}
                   required
-                  className={`h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-300 text-black ${
-                    errors.username ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                  className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                    errors.username ? 'border-red-500 focus:border-red-500' : ''
                   }`}
                 />
                 {errors.username && (
@@ -248,7 +249,7 @@ export default function PoliceRegisterPage() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-sm font-semibold text-slate-700">Email</Label>
+                <Label htmlFor="email" className="text-sm font-medium text-gray-700">Email</Label>
                 <Input
                   id="email"
                   type="email"
@@ -260,8 +261,8 @@ export default function PoliceRegisterPage() {
                     }
                   }}
                   required
-                  className={`h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-300 text-black ${
-                    errors.email ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                  className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                    errors.email ? 'border-red-500 focus:border-red-500' : ''
                   }`}
                 />
                 {errors.email && (
@@ -273,7 +274,7 @@ export default function PoliceRegisterPage() {
               </div>
               
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-sm font-semibold text-slate-700">Password</Label>
+                <Label htmlFor="password" className="text-sm font-medium text-gray-700">Password</Label>
                 <Input
                   id="password"
                   type="password"
@@ -285,8 +286,8 @@ export default function PoliceRegisterPage() {
                     }
                   }}
                   required
-                  className={`h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-300 text-black ${
-                    errors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                  className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                    errors.password ? 'border-red-500 focus:border-red-500' : ''
                   }`}
                 />
                 {errors.password && (
@@ -297,7 +298,7 @@ export default function PoliceRegisterPage() {
                 )}
               </div>
               
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button type="submit" className="w-full h-12 bg-blue-600 text-white hover:bg-blue-700" disabled={isLoading}>
                 {isLoading ? "Registering..." : "Register"}
               </Button>
             </form>

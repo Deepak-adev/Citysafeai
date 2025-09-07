@@ -400,63 +400,17 @@ export default function PublicLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-slate-800 overflow-hidden">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      {/* Government Seal Background Pattern */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-5">
-        <div className="absolute top-10 left-10 w-32 h-32">
-          <Building className="w-full h-full text-blue-600" />
-        </div>
-        <div className="absolute top-20 right-20 w-24 h-24">
-          <Award className="w-full h-full text-emerald-600" />
-        </div>
-        <div className="absolute bottom-20 left-1/4 w-28 h-28">
-          <Globe className="w-full h-full text-amber-600" />
-        </div>
-        <div className="absolute bottom-32 right-1/3 w-20 h-20">
-          <Shield className="w-full h-full text-blue-600" />
-        </div>
-      </div>
 
-      {/* Subtle Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-100/50 via-transparent to-transparent"></div>
-        <div className="absolute bottom-0 right-0 w-full h-full bg-gradient-to-tl from-emerald-100/50 via-transparent to-transparent"></div>
-      </div>
-
-      {/* Floating Elements with Parallax */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div 
-          className="absolute top-1/4 left-10 w-6 h-6 bg-blue-200 rounded-full opacity-40 transition-transform duration-1000"
-          style={{ transform: `translateY(${scrollY * 0.1}px) rotate(${scrollY * 0.05}deg)` }}
-        ></div>
-        <div 
-          className="absolute top-1/3 right-20 w-4 h-4 bg-emerald-200 rounded-full opacity-40 transition-transform duration-1000"
-          style={{ transform: `translateY(${scrollY * -0.15}px) rotate(${scrollY * -0.08}deg)` }}
-        ></div>
-        <div 
-          className="absolute bottom-1/4 left-1/4 w-5 h-5 bg-amber-200 rounded-full opacity-40 transition-transform duration-1000"
-          style={{ transform: `translateY(${scrollY * 0.12}px) rotate(${scrollY * 0.06}deg)` }}
-        ></div>
-      </div>
-
-      <div className="relative min-h-screen flex items-center justify-center px-6 lg:px-8 py-8">
-        <div className="w-full max-w-2xl space-y-6">
-          <div className="text-center space-y-4">
-            
-            
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-              <span className="block text-slate-900 mb-2">
-                Public
-              </span>
-              <span className="block bg-gradient-to-r from-emerald-700 to-blue-700 bg-clip-text text-transparent">
-                Safety Portal
-              </span>
-            </h1>
-            <p className="text-lg text-slate-600 font-medium">Join our community safety network</p>
+      <div className="flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Public Safety Portal</h1>
+            <p className="text-gray-600">Access community safety features</p>
           </div>
 
-          <Card className="group relative bg-gradient-to-br from-white to-slate-50 rounded-xl border border-slate-200 hover:border-emerald-300 hover:shadow-xl transition-all duration-700 ease-out hover:transform hover:scale-105 hover:-translate-y-2">
+          <Card className="bg-white border border-gray-200 shadow-sm">
             <CardHeader>
               <div className="flex justify-center space-x-4 mb-6">
                 <Button
@@ -465,10 +419,10 @@ export default function PublicLoginPage() {
                     setIsLogin(true)
                     resetForm()
                   }}
-                  className={`px-6 py-2 font-semibold transition-all duration-300 ${
+                  className={`px-6 py-2 ${
                     isLogin 
-                      ? "bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:shadow-lg hover:shadow-emerald-500/25" 
-                      : "border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-700"
+                      ? "bg-blue-600 text-white hover:bg-blue-700" 
+                      : "border-gray-300 text-gray-600 hover:border-gray-400"
                   }`}
                 >
                   Sign In
@@ -479,19 +433,19 @@ export default function PublicLoginPage() {
                     setIsLogin(false)
                     setCurrentStep(1)
                   }}
-                  className={`px-6 py-2 font-semibold transition-all duration-300 ${
+                  className={`px-6 py-2 ${
                     !isLogin 
-                      ? "bg-gradient-to-r from-emerald-600 to-emerald-700 text-white hover:shadow-lg hover:shadow-emerald-500/25" 
-                      : "border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-700"
+                      ? "bg-blue-600 text-white hover:bg-blue-700" 
+                      : "border-gray-300 text-gray-600 hover:border-gray-400"
                   }`}
                 >
                   Register
                 </Button>
               </div>
-              <CardTitle className="text-2xl text-center text-slate-900 group-hover:text-emerald-700 transition-all duration-300">
+              <CardTitle className="text-2xl text-center text-gray-900">
                 {isLogin ? "Welcome Back" : "Create Account"}
               </CardTitle>
-              <CardDescription className="text-center text-slate-600 font-medium">
+              <CardDescription className="text-center text-gray-600">
                 {isLogin ? "Sign in to access safety features" : "Register for emergency services and community safety"}
               </CardDescription>
             </CardHeader>
@@ -523,7 +477,7 @@ export default function PublicLoginPage() {
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="username" className="text-sm font-semibold text-slate-700">Username</Label>
+                    <Label htmlFor="username" className="text-sm font-medium text-gray-700">Username</Label>
                     <Input
                       id="username"
                       value={username}
@@ -534,8 +488,8 @@ export default function PublicLoginPage() {
                         }
                       }}
                       required
-                      className={`h-12 bg-white border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-300 text-black placeholder:text-slate-500 ${
-                        errors.username ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                      className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                        errors.username ? 'border-red-500 focus:border-red-500' : ''
                       }`}
                     />
                     {errors.username && (
@@ -546,7 +500,7 @@ export default function PublicLoginPage() {
                     )}
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-sm font-semibold text-slate-700">Password</Label>
+                    <Label htmlFor="password" className="text-sm font-medium text-gray-700">Password</Label>
                     <Input
                       id="password"
                       type="password"
@@ -558,8 +512,8 @@ export default function PublicLoginPage() {
                         }
                       }}
                       required
-                      className={`h-12 bg-white border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-300 text-black placeholder:text-slate-500 ${
-                        errors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                      className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                        errors.password ? 'border-red-500 focus:border-red-500' : ''
                       }`}
                     />
                     {errors.password && (
@@ -575,24 +529,24 @@ export default function PublicLoginPage() {
                   <>
                     {/* Step Indicator */}
                     <div className="flex items-center justify-center space-x-4 mb-6">
-                      <div className={`flex items-center space-x-2 ${currentStep >= 1 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
+                      <div className={`flex items-center space-x-2 ${currentStep >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                           currentStep >= 1 
-                            ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-lg' 
-                            : 'bg-slate-200 text-slate-500'
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-200 text-gray-500'
                         }`}>
                           1
                         </div>
                         <span className="text-sm font-medium">Contact Info</span>
                       </div>
-                      <div className={`w-12 h-0.5 transition-all duration-300 ${
-                        currentStep >= 2 ? 'bg-gradient-to-r from-emerald-600 to-emerald-700' : 'bg-slate-200'
+                      <div className={`w-12 h-0.5 ${
+                        currentStep >= 2 ? 'bg-blue-600' : 'bg-gray-200'
                       }`}></div>
-                      <div className={`flex items-center space-x-2 ${currentStep >= 2 ? 'text-emerald-600' : 'text-slate-400'}`}>
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all duration-300 ${
+                      <div className={`flex items-center space-x-2 ${currentStep >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                           currentStep >= 2 
-                            ? 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-lg' 
-                            : 'bg-slate-200 text-slate-500'
+                            ? 'bg-blue-600 text-white' 
+                            : 'bg-gray-200 text-gray-500'
                         }`}>
                           2
                         </div>
@@ -602,17 +556,17 @@ export default function PublicLoginPage() {
 
                     {/* Section 1: Contact Information */}
                     {currentStep === 1 && (
-                      <div className="space-y-6 p-6 bg-gradient-to-br from-emerald-50/30 to-blue-50/30 rounded-xl border border-emerald-100 transition-all duration-300">
+                      <div className="space-y-6 p-6 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex items-center space-x-3 mb-4">
-                          <div className="w-8 h-8 bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-lg flex items-center justify-center">
+                          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                             <Users className="w-4 h-4 text-white" />
                           </div>
-                          <h3 className="text-lg font-bold text-slate-900">Contact Information</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">Contact Information</h3>
                         </div>
                         
                         <div className="space-y-4">
                           <div className="space-y-2">
-                            <Label htmlFor="phone" className="text-sm font-semibold text-slate-700">Phone Number</Label>
+                            <Label htmlFor="phone" className="text-sm font-medium text-gray-700">Phone Number</Label>
                             <Input
                               id="phone"
                               type="tel"
@@ -625,8 +579,8 @@ export default function PublicLoginPage() {
                                 }
                               }}
                               required
-                              className={`h-12 bg-white border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-300 text-black placeholder:text-slate-500 ${
-                                errors.phone ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                              className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                                errors.phone ? 'border-red-500 focus:border-red-500' : ''
                               }`}
                             />
                             {errors.phone && (
@@ -648,7 +602,7 @@ export default function PublicLoginPage() {
                                 variant="outline"
                                 onClick={requestLocation}
                                 disabled={useManualLocation}
-                                className="border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-700 transition-all duration-300"
+                                className="border-gray-300 text-gray-600 hover:border-gray-400"
                               >
                                 Use Current Location
                               </Button>
@@ -663,7 +617,7 @@ export default function PublicLoginPage() {
                                   }
                                   setAuthError("") // Clear any auth errors
                                 }}
-                                className="border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-700 transition-all duration-300"
+                                className="border-gray-300 text-gray-600 hover:border-gray-400"
                               >
                                 {useManualLocation ? "Use GPS" : "Enter Manually"}
                               </Button>
@@ -680,8 +634,8 @@ export default function PublicLoginPage() {
                                     }
                                   }}
                                   required
-                                  className={`h-12 bg-white border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-300 text-black placeholder:text-slate-500 ${
-                                    errors.location ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                                  className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                                    errors.location ? 'border-red-500 focus:border-red-500' : ''
                                   }`}
                                 />
                                 {errors.location && (
@@ -712,7 +666,7 @@ export default function PublicLoginPage() {
                           <Button
                             type="button"
                             onClick={handleNextStep}
-                            className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-semibold hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-500 transform hover:scale-105 hover:-translate-y-1 hover:from-emerald-700 hover:to-emerald-800"
+                            className="px-8 py-3 bg-blue-600 text-white hover:bg-blue-700"
                           >
                             Next Step
                           </Button>
@@ -722,13 +676,13 @@ export default function PublicLoginPage() {
 
                     {/* Section 2: Emergency Contacts */}
                     {currentStep === 2 && (
-                      <div className="space-y-6 p-6 bg-gradient-to-br from-blue-50/30 to-emerald-50/30 rounded-xl border border-blue-100 transition-all duration-300">
+                      <div className="space-y-6 p-6 bg-gray-50 rounded-lg border border-gray-200">
                         <div className="flex items-center space-x-3 mb-4">
-                          <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg flex items-center justify-center">
+                          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                             <Shield className="w-4 h-4 text-white" />
                           </div>
-                          <h3 className="text-lg font-bold text-slate-900">Emergency Contacts</h3>
-                          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-1 rounded-full font-medium">Add up to 5</span>
+                          <h3 className="text-lg font-semibold text-gray-900">Emergency Contacts</h3>
+                          <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full font-medium">Add up to 5</span>
                         </div>
                         
                         <div className="space-y-4">
@@ -736,36 +690,36 @@ export default function PublicLoginPage() {
                             <div key={index} className="group relative">
                               <div className="grid grid-cols-3 gap-3">
                                 <div className="space-y-1">
-                                  <Label className="text-xs font-medium text-slate-500">Name</Label>
+                                  <Label className="text-xs font-medium text-gray-500">Name</Label>
                                   <Input
                                     placeholder="Full name"
                                     value={contact.name}
                                     onChange={(e) => updateEmergencyContact(index, "name", e.target.value)}
-                                    className="h-10 bg-white border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-300 group-hover:border-emerald-300 text-black placeholder:text-slate-500"
+                                    className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                                   />
                                 </div>
                                 <div className="space-y-1">
-                                  <Label className="text-xs font-medium text-slate-500">Phone</Label>
+                                  <Label className="text-xs font-medium text-gray-500">Phone</Label>
                                   <Input
                                     placeholder="Phone number"
                                     value={contact.phone}
                                     onChange={(e) => updateEmergencyContact(index, "phone", e.target.value)}
-                                    className="h-10 bg-white border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-300 group-hover:border-emerald-300 text-black placeholder:text-slate-500"
+                                    className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                                   />
                                 </div>
                                 <div className="space-y-1">
-                                  <Label className="text-xs font-medium text-slate-500">Relationship</Label>
+                                  <Label className="text-xs font-medium text-gray-500">Relationship</Label>
                                   <Input
                                     placeholder="e.g., Spouse, Parent"
                                     value={contact.relationship}
                                     onChange={(e) => updateEmergencyContact(index, "relationship", e.target.value)}
-                                    className="h-10 bg-white border-slate-200 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-300 group-hover:border-emerald-300 text-black placeholder:text-slate-500"
+                                    className="h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                                   />
                                 </div>
                               </div>
                               
                               {/* Contact number indicator */}
-                              <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-6 h-6 bg-gradient-to-r from-emerald-500 to-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg">
+                              <div className="absolute -left-2 top-1/2 transform -translate-y-1/2 w-6 h-6 bg-blue-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
                                 {index + 1}
                               </div>
                             </div>
@@ -793,13 +747,13 @@ export default function PublicLoginPage() {
                             type="button"
                             variant="outline"
                             onClick={handlePreviousStep}
-                            className="px-6 py-3 border-slate-300 text-slate-600 hover:border-emerald-500 hover:text-emerald-700 transition-all duration-300"
+                            className="px-6 py-3 border-gray-300 text-gray-600 hover:border-gray-400"
                           >
                             Previous
                           </Button>
                           <Button
                             type="submit"
-                            className="px-8 py-3 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-semibold hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-500 transform hover:scale-105 hover:-translate-y-1 hover:from-emerald-700 hover:to-emerald-800"
+                            className="px-8 py-3 bg-blue-600 text-white hover:bg-blue-700"
                             disabled={isLoading}
                           >
                             {isLoading ? "Creating Account..." : "Create Account"}
@@ -814,7 +768,7 @@ export default function PublicLoginPage() {
                 {isLogin && (
                   <Button 
                     type="submit" 
-                    className="w-full h-12 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white font-semibold hover:shadow-xl hover:shadow-emerald-500/25 transition-all duration-500 transform hover:scale-105 hover:-translate-y-1 hover:from-emerald-700 hover:to-emerald-800" 
+                    className="w-full h-12 bg-blue-600 text-white hover:bg-blue-700" 
                     disabled={isLoading}
                   >
                     {isLoading ? "Signing In..." : "Sign In"}
@@ -822,9 +776,6 @@ export default function PublicLoginPage() {
                 )}
               </form>
             </CardContent>
-            
-            {/* Subtle Background Animation */}
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-50/0 to-blue-50/0 group-hover:from-emerald-50/30 group-hover:to-blue-50/30 rounded-xl transition-all duration-500 pointer-events-none"></div>
           </Card>
         </div>
       </div>
