@@ -61,22 +61,43 @@ export default function MapComponent({ activeLayer, source, destination, showRou
 
   // Handle patrol route display
   useEffect(() => {
-    if (!mapInstanceRef.current || !patrolRoute || !layersRef.current) return
+    console.log('Patrol route useEffect triggered:', { 
+      hasMap: !!mapInstanceRef.current, 
+      hasPatrolRoute: !!patrolRoute, 
+      hasLayers: !!layersRef.current,
+      activeLayer 
+    })
+    
+    if (!mapInstanceRef.current || !patrolRoute || !layersRef.current) {
+      console.log('Missing requirements for patrol route display')
+      return
+    }
 
     const L = (window as any).L
-    if (!L) return
+    if (!L) {
+      console.log('Leaflet not available for patrol route display')
+      return
+    }
 
     // Clear existing patrol route
     layersRef.current.patrolRoute.clearLayers()
+    console.log('Cleared existing patrol route')
 
     // Add patrol route to map
-    displayPatrolRoute(L, layersRef.current.patrolRoute, patrolRoute)
+    displayPatrolRoute(L, layersRef.current.patrolRoute, patrolRoute).then(() => {
+      console.log('Displayed patrol route on map')
+    }).catch((error) => {
+      console.error('Error displaying patrol route:', error)
+    })
 
     // Add patrol route layer to map if not already added
     if (!mapInstanceRef.current.hasLayer(layersRef.current.patrolRoute)) {
       layersRef.current.patrolRoute.addTo(mapInstanceRef.current)
+      console.log('Patrol route layer added to map')
+    } else {
+      console.log('Patrol route layer already on map')
     }
-  }, [patrolRoute])
+  }, [patrolRoute, activeLayer])
 
   // Handle police vehicle pin display
   useEffect(() => {
@@ -130,10 +151,18 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     // Add role-based paths based on user role
     if (userRole === 'police') {
       console.log('Adding red zone paths for police user')
-      addRedZonePaths(L, layersRef.current.roleBasedPaths)
+      addRedZonePaths(L, layersRef.current.roleBasedPaths).then(() => {
+        console.log('Red zone paths added successfully')
+      }).catch((error) => {
+        console.error('Error adding red zone paths:', error)
+      })
     } else if (userRole === 'public') {
       console.log('Adding green zone paths for public user')
-      addGreenZonePaths(L, layersRef.current.roleBasedPaths)
+      addGreenZonePaths(L, layersRef.current.roleBasedPaths).then(() => {
+        console.log('Green zone paths added successfully')
+      }).catch((error) => {
+        console.error('Error adding green zone paths:', error)
+      })
     }
 
     // Add role-based paths layer to map
@@ -1279,14 +1308,61 @@ function calculateDistance(coord1: number[], coord2: number[]) {
   return R * c
 }
 
-function displayPatrolRoute(L: any, layer: any, patrolRoute: any) {
+async function getRoadRoute(L: any, start: [number, number], end: [number, number]) {
+  try {
+    // Use OpenRouteService for road routing
+    const apiKey = '5b3ce3597851110001cf6248c8b8b8b8' // Free API key for demo
+    const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${start[1]},${start[0]}&end=${end[1]},${end[0]}`
+    
+    const response = await fetch(url)
+    const data = await response.json()
+    
+    if (data.features && data.features[0] && data.features[0].geometry) {
+      const coordinates = data.features[0].geometry.coordinates
+      return coordinates.map((coord: number[]) => [coord[1], coord[0]]) // Convert to [lat, lng]
+    }
+  } catch (error) {
+    console.log('Routing API error, using straight line:', error)
+  }
+  
+  // Fallback to straight line if routing fails
+  return [start, end]
+}
+
+async function getMultiPointRoute(L: any, waypoints: any[]) {
+  if (waypoints.length < 2) return waypoints.map((wp: any) => [wp.lat, wp.lng])
+  
+  let routeCoords: [number, number][] = []
+  
+  // Get route between each consecutive pair of waypoints
+  for (let i = 0; i < waypoints.length - 1; i++) {
+    const start: [number, number] = [waypoints[i].lat, waypoints[i].lng]
+    const end: [number, number] = [waypoints[i + 1].lat, waypoints[i + 1].lng]
+    
+    const segment = await getRoadRoute(L, start, end)
+    
+    if (i === 0) {
+      routeCoords = [...segment]
+    } else {
+      // Remove the first point to avoid duplication
+      routeCoords = [...routeCoords, ...segment.slice(1)]
+    }
+  }
+  
+  return routeCoords
+}
+
+async function displayPatrolRoute(L: any, layer: any, patrolRoute: any) {
   if (!patrolRoute || !patrolRoute.waypoints || patrolRoute.waypoints.length === 0) return
 
   const waypoints = patrolRoute.waypoints
   const routeColor = getRouteColor(patrolRoute.status)
   
-  // Create route polyline with all waypoints for continuous path
-  const routeCoords = waypoints.map((wp: any) => [wp.lat, wp.lng])
+  console.log('Getting road route for patrol route with', waypoints.length, 'waypoints')
+  
+  // Get actual road route between waypoints
+  const routeCoords = await getMultiPointRoute(L, waypoints)
+  
   const routeLine = L.polyline(routeCoords, {
     color: routeColor,
     weight: 6,
@@ -1566,7 +1642,7 @@ const addPoliceVehiclePin = (L: any, location: {lat: number, lng: number}, layer
   console.log('Police vehicle pin added to layer')
 }
 
-const addRedZonePaths = (L: any, layer: any) => {
+const addRedZonePaths = async (L: any, layer: any) => {
   console.log('Adding red zone paths for police users')
   
   // Define red zone paths (shortest/dangerous routes for police)
@@ -1607,10 +1683,13 @@ const addRedZonePaths = (L: any, layer: any) => {
     }
   ]
 
-  redZonePaths.forEach((path, index) => {
+  for (const [index, path] of redZonePaths.entries()) {
     console.log(`Adding red zone path ${index + 1}:`, path.name, path.coordinates)
     
-    const polyline = L.polyline(path.coordinates, {
+    // Get road route for this path
+    const roadCoords = await getMultiPointRoute(L, path.coordinates.map(coord => ({ lat: coord[0], lng: coord[1] })))
+    
+    const polyline = L.polyline(roadCoords, {
       color: '#dc2626', // Red color
       weight: 6, // Increased weight for better visibility
       opacity: 0.9, // Increased opacity
@@ -1645,12 +1724,12 @@ const addRedZonePaths = (L: any, layer: any) => {
 
     layer.addLayer(polyline)
     console.log(`Red zone path ${index + 1} added to layer`)
-  })
+  }
   
   console.log(`Total red zone paths added: ${redZonePaths.length}`)
 }
 
-const addGreenZonePaths = (L: any, layer: any) => {
+const addGreenZonePaths = async (L: any, layer: any) => {
   console.log('Adding green zone paths for public users')
   
   // Define green zone paths (safe routes for public)
@@ -1693,10 +1772,13 @@ const addGreenZonePaths = (L: any, layer: any) => {
     }
   ]
 
-  greenZonePaths.forEach((path, index) => {
+  for (const [index, path] of greenZonePaths.entries()) {
     console.log(`Adding green zone path ${index + 1}:`, path.name, path.coordinates)
     
-    const polyline = L.polyline(path.coordinates, {
+    // Get road route for this path
+    const roadCoords = await getMultiPointRoute(L, path.coordinates.map(coord => ({ lat: coord[0], lng: coord[1] })))
+    
+    const polyline = L.polyline(roadCoords, {
       color: '#16a34a', // Green color
       weight: 6, // Increased weight for better visibility
       opacity: 0.9, // Increased opacity
@@ -1731,7 +1813,7 @@ const addGreenZonePaths = (L: any, layer: any) => {
 
     layer.addLayer(polyline)
     console.log(`Green zone path ${index + 1} added to layer`)
-  })
+  }
   
   console.log(`Total green zone paths added: ${greenZonePaths.length}`)
 }

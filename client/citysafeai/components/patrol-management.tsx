@@ -70,9 +70,15 @@ export default function PatrolManagement() {
   })
 
   const handleRouteGenerated = (route: PatrolRoute) => {
+    console.log('Route generated, switching to patrol route view:', route)
     setActiveRoute(route)
     setSelectedLayer('patrolRoute')
     updatePatrolStats()
+    
+    // Ensure map is visible
+    if (!showMap) {
+      setShowMap(true)
+    }
   }
 
   const handleRouteStarted = (route: PatrolRoute) => {

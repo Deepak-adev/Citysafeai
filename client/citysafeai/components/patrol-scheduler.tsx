@@ -536,12 +536,12 @@ export default function PatrolScheduler({ onRouteGenerated, onRouteStarted, onLo
     console.log('Available hotspots:', hotspots.length)
     
     if (hotspots.length === 0) {
-      alert('No crime hotspots available. Please refresh the data.')
+      console.log('No crime hotspots available for route generation')
       return
     }
 
     if (!currentLocation) {
-      alert('Current location not available. Please allow location access or refresh the page.')
+      console.log('Current location not available for route generation')
       return
     }
 
@@ -564,9 +564,9 @@ export default function PatrolScheduler({ onRouteGenerated, onRouteStarted, onLo
     } catch (error) {
       console.error('Error generating patrol route:', error)
       if (error instanceof Error && error.message.includes('No local hotspots')) {
-        alert('No crime hotspots found within your patrol area. Try refreshing hotspots or check if you\'re in a supported city.')
+        console.log('No crime hotspots found within patrol area')
       } else {
-        alert('Error generating patrol route: ' + (error as Error).message)
+        console.log('Error generating patrol route:', (error as Error).message)
       }
     } finally {
       setLoading(false)
