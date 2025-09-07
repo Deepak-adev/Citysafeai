@@ -2,6 +2,22 @@
 
 import { useEffect, useRef, useState } from "react"
 
+interface SafePlace {
+  id: string
+  name: string
+  type: 'police' | 'hospital' | 'shelter' | 'women_help' | 'fire_station'
+  lat: number
+  lng: number
+  address: string
+  phone?: string
+  hours?: string
+  distance?: number
+  emergency?: boolean
+  description?: string
+  rating?: number
+  place_id?: string
+}
+
 interface MapComponentProps {
   activeLayer: string
   source?: string
@@ -30,9 +46,11 @@ interface MapComponentProps {
     lng: number
   }
   userRole?: string
+  safePlaces?: SafePlace[]
+  showSafeZones?: boolean
 }
 
-export default function MapComponent({ activeLayer, source, destination, showRoute, patrolRoute, currentLocation, userRole }: MapComponentProps) {
+export default function MapComponent({ activeLayer, source, destination, showRoute, patrolRoute, currentLocation, userRole, safePlaces, showSafeZones }: MapComponentProps) {
   const mapRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const layersRef = useRef<any>({})
@@ -118,37 +136,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
     }
   }, [patrolRoute, activeLayer])
 
-  // Handle police vehicle pin display
-  useEffect(() => {
-    console.log('Police vehicle useEffect triggered:', { currentLocation, mapReady: !!mapInstanceRef.current, layersReady: !!layersRef.current })
-    
-    if (!mapInstanceRef.current || !currentLocation || !layersRef.current) {
-      console.log('Missing requirements for police vehicle pin')
-      return
-    }
-
-    // Additional safety check for map instance
-    if (!mapInstanceRef.current || typeof mapInstanceRef.current.hasLayer !== 'function') {
-      console.log('Map instance not properly initialized for police vehicle pin')
-      return
-    }
-
-    const L = (window as any).L
-    if (!L) {
-      console.log('Leaflet not available')
-      return
-    }
-
-    // Ensure police vehicle layer is added to map
-    if (mapInstanceRef.current && typeof mapInstanceRef.current.hasLayer === 'function' && 
-        !mapInstanceRef.current.hasLayer(layersRef.current.policeVehicle)) {
-      layersRef.current.policeVehicle.addTo(mapInstanceRef.current)
-      console.log('Police vehicle layer added to map')
-    }
-
-    // Add police vehicle pin at current location
-    addPoliceVehiclePin(L, currentLocation, layersRef.current.policeVehicle)
-  }, [currentLocation])
+  // Note: Live patrol location tracking removed - using static safe places data instead
 
   // Handle role-based path display when zones are active
   useEffect(() => {
@@ -208,6 +196,51 @@ export default function MapComponent({ activeLayer, source, destination, showRou
       console.log('Role-based paths layer already on map')
     }
   }, [activeLayer, userRole])
+
+  // Handle safe zones display
+  useEffect(() => {
+    console.log('Safe zones useEffect triggered:', { 
+      hasMap: !!mapInstanceRef.current, 
+      hasLayers: !!layersRef.current,
+      safePlaces: safePlaces?.length || 0,
+      showSafeZones
+    })
+    
+    if (!mapInstanceRef.current || !layersRef.current || !safePlaces || !showSafeZones) {
+      console.log('Missing requirements for safe zones display')
+      return
+    }
+
+    const L = (window as any).L
+    if (!L) {
+      console.log('Leaflet not available for safe zones display')
+      return
+    }
+
+    // Additional safety check for map instance
+    if (!mapInstanceRef.current || typeof mapInstanceRef.current.hasLayer !== 'function') {
+      console.log('Map instance not properly initialized for safe zones display')
+      return
+    }
+
+    // Clear existing safe zones
+    if (layersRef.current.safeZones && typeof layersRef.current.safeZones.clearLayers === 'function') {
+      layersRef.current.safeZones.clearLayers()
+      console.log('Cleared existing safe zones')
+    }
+
+    // Add safe zones to map
+    displaySafeZones(L, layersRef.current.safeZones, safePlaces)
+
+    // Add safe zones layer to map if not already added
+    if (mapInstanceRef.current && typeof mapInstanceRef.current.hasLayer === 'function' && 
+        !mapInstanceRef.current.hasLayer(layersRef.current.safeZones)) {
+      layersRef.current.safeZones.addTo(mapInstanceRef.current)
+      console.log('Safe zones layer added to map')
+    } else {
+      console.log('Safe zones layer already on map')
+    }
+  }, [safePlaces, showSafeZones])
 
   useEffect(() => {
     if (typeof window === "undefined") return
@@ -396,6 +429,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         patrolRoute: L.layerGroup(),
         policeVehicle: L.layerGroup(),
         roleBasedPaths: L.layerGroup(),
+        safeZones: L.layerGroup(),
       }
 
       // Add demo data for each layer
@@ -2016,6 +2050,165 @@ function getWaypointColor(status: string, priority: number): string {
     case 2: return '#f59e0b' // Yellow for medium priority
     case 1: return '#10b981' // Green for low priority
     default: return '#6b7280' // Gray
+  }
+}
+
+function displaySafeZones(L: any, layer: any, safePlaces: SafePlace[]) {
+  if (!safePlaces || safePlaces.length === 0) return
+
+  console.log(`Displaying ${safePlaces.length} safe zones on map`)
+
+  safePlaces.forEach((place, index) => {
+    const iconColor = getSafePlaceColor(place.type)
+    const iconSymbol = getSafePlaceIcon(place.type)
+    
+    const marker = L.marker([place.lat, place.lng], {
+      icon: L.divIcon({
+        className: "safe-zone-marker",
+        html: `
+          <div style="position: relative;">
+            <div style="
+              background: ${iconColor}; 
+              color: white; 
+              border-radius: 50%; 
+              width: 36px; 
+              height: 36px; 
+              display: flex; 
+              align-items: center; 
+              justify-content: center; 
+              font-weight: bold;
+              font-size: 18px;
+              border: 3px solid white;
+              box-shadow: 0 3px 8px rgba(0,0,0,0.3);
+            ">${iconSymbol}</div>
+            ${place.emergency ? `
+              <div style="
+                position: absolute;
+                top: -4px;
+                right: -4px;
+                background: #dc2626;
+                color: white;
+                border-radius: 50%;
+                width: 16px;
+                height: 16px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                font-size: 10px;
+                border: 2px solid white;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+              ">!</div>
+            ` : ''}
+          </div>`,
+        iconSize: [40, 40],
+        iconAnchor: [20, 20]
+      })
+    })
+
+    marker.bindPopup(`
+      <div style="font-family: system-ui; padding: 12px; min-width: 280px;">
+        <h3 style="margin: 0 0 8px 0; color: ${iconColor}; font-weight: bold;">
+          ${iconSymbol} ${place.name}
+        </h3>
+        <div style="
+          padding: 8px;
+          background: ${iconColor}15;
+          border: 1px solid ${iconColor}40;
+          border-radius: 6px;
+          margin-bottom: 8px;
+        ">
+          <div style="color: #374151; margin-bottom: 4px;">
+            <strong>Type:</strong> ${place.type.replace('_', ' ').toUpperCase()}
+          </div>
+          <div style="color: #374151; margin-bottom: 4px;">
+            <strong>Address:</strong> ${place.address}
+          </div>
+          ${place.phone ? `
+            <div style="color: #374151; margin-bottom: 4px;">
+              <strong>Phone:</strong> 
+              <a href="tel:${place.phone}" style="color: ${iconColor}; text-decoration: none;">
+                ${place.phone}
+              </a>
+            </div>
+          ` : ''}
+          ${place.hours ? `
+            <div style="color: #374151; margin-bottom: 4px;">
+              <strong>Hours:</strong> ${place.hours}
+            </div>
+          ` : ''}
+          ${place.distance ? `
+            <div style="color: #374151; margin-bottom: 4px;">
+              <strong>Distance:</strong> ${place.distance.toFixed(1)} km away
+            </div>
+          ` : ''}
+          ${place.emergency ? `
+            <div style="color: #dc2626; font-weight: bold;">
+              🚨 EMERGENCY SERVICES AVAILABLE
+            </div>
+          ` : ''}
+        </div>
+        ${place.description ? `
+          <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 13px;">
+            ${place.description}
+          </p>
+        ` : ''}
+        <div style="display: flex; gap: 8px; margin-top: 8px;">
+          ${place.phone ? `
+            <a href="tel:${place.phone}" style="
+              background: ${iconColor};
+              color: white;
+              padding: 6px 12px;
+              border-radius: 4px;
+              text-decoration: none;
+              font-size: 12px;
+              font-weight: 500;
+            ">📞 Call Now</a>
+          ` : ''}
+          <button onclick="navigator.share && navigator.share({
+            title: '${place.name}',
+            text: 'Safe place: ${place.address}',
+            url: window.location.href
+          })" style="
+            background: #6b7280;
+            color: white;
+            padding: 6px 12px;
+            border-radius: 4px;
+            border: none;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+          ">📤 Share</button>
+        </div>
+      </div>
+    `)
+
+    layer.addLayer(marker)
+    console.log(`Safe zone ${index + 1} added: ${place.name}`)
+  })
+
+  console.log(`Successfully added ${safePlaces.length} safe zones to map`)
+}
+
+function getSafePlaceColor(type: string): string {
+  switch (type) {
+    case 'police': return '#1e40af' // Blue
+    case 'hospital': return '#dc2626' // Red
+    case 'shelter': return '#16a34a' // Green
+    case 'women_help': return '#7c3aed' // Purple
+    case 'fire_station': return '#ea580c' // Orange
+    default: return '#6b7280' // Gray
+  }
+}
+
+function getSafePlaceIcon(type: string): string {
+  switch (type) {
+    case 'police': return '🚔'
+    case 'hospital': return '🏥'
+    case 'shelter': return '🏠'
+    case 'women_help': return '🛡️'
+    case 'fire_station': return '🚒'
+    default: return '📍'
   }
 }
 

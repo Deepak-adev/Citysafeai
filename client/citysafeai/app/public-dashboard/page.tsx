@@ -22,7 +22,8 @@ import {
   BarChart3,
   Route,
   Bell,
-  Plus
+  Plus,
+  MapPin
 } from "lucide-react"
 
 export default function PublicDashboardPage() {
@@ -107,6 +108,16 @@ export default function PublicDashboardPage() {
       bgColor: "bg-blue-50",
       borderColor: "border-blue-200",
       hoverColor: "hover:from-blue-700 hover:to-blue-900"
+    },
+    {
+      id: "safeZones",
+      title: "Safe Zone Finder",
+      description: "Find nearby police stations, hospitals, shelters, and women help centers",
+      icon: MapPin,
+      color: "from-green-600 to-green-800",
+      bgColor: "bg-green-50",
+      borderColor: "border-green-200",
+      hoverColor: "hover:from-green-700 hover:to-green-900"
     },
     {
       id: "alerts",

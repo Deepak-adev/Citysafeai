@@ -7,6 +7,7 @@ import dynamic from "next/dynamic"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { IncidentReportForm } from "@/components/incident-form"
+import SafeZoneFinder from "@/components/safe-zone-finder"
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,20 @@ const PatrolManagement = dynamic(() => import("@/components/patrol-management"),
   ),
 })
 
+interface SafePlace {
+  id: string
+  name: string
+  type: 'police' | 'hospital' | 'shelter' | 'women_help'
+  lat: number
+  lng: number
+  address: string
+  phone?: string
+  hours?: string
+  distance?: number
+  emergency?: boolean
+  description?: string
+}
+
 export default function DashboardPage() {
   const [userRole, setUserRole] = useState<string>("")
   const [username, setUsername] = useState<string>("")
@@ -52,6 +67,9 @@ export default function DashboardPage() {
   const [publicReports, setPublicReports] = useState<any[]>([])
   const [selectedReport, setSelectedReport] = useState<any>(null)
   const [isReportModalOpen, setIsReportModalOpen] = useState(false)
+  const [safePlaces, setSafePlaces] = useState<SafePlace[]>([])
+  const [showSafeZones, setShowSafeZones] = useState(false)
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | undefined>()
   const router = useRouter()
 
   // Load user data on mount
@@ -81,6 +99,39 @@ export default function DashboardPage() {
       }
     }
   }, [router])
+
+  // Get user's current location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setUserLocation({
+            lat: position.coords.latitude,
+            lng: position.coords.longitude
+          })
+        },
+        (error) => {
+          console.log('Could not get location:', error)
+          // Default to Chennai if location access denied
+          setUserLocation({
+            lat: 13.0827,
+            lng: 80.2707
+          })
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 300000
+        }
+      )
+    } else {
+      // Default to Chennai if geolocation not supported
+      setUserLocation({
+        lat: 13.0827,
+        lng: 80.2707
+      })
+    }
+  }, [])
 
   // Load public reports and refresh when dialog closes
   useEffect(() => {
@@ -134,6 +185,19 @@ export default function DashboardPage() {
     } else if (userRole === "police") {
       router.push("/police-dashboard")
     }
+  }
+
+  // Handle place selection from SafeZoneFinder
+  const handlePlaceSelect = (place: SafePlace) => {
+    setSafePlaces([place])
+    setShowSafeZones(true)
+    console.log('Selected place:', place)
+  }
+
+  // Handle showing places on map
+  const handleShowOnMap = (places: SafePlace[]) => {
+    setSafePlaces(places)
+    setShowSafeZones(true)
   }
 
 
@@ -257,6 +321,9 @@ export default function DashboardPage() {
               destination={destination}
               showRoute={showRoute}
               userRole={userRole}
+              safePlaces={safePlaces}
+              showSafeZones={showSafeZones}
+              currentLocation={userLocation}
             />
           </div>
         )}
@@ -426,6 +493,19 @@ export default function DashboardPage() {
           </div>
         )}
 
+        {/* Safe Zone Finder Panel */}
+        {activeLayer === "safeZones" && (
+          <div className="absolute top-4 left-4 z-[1000] w-80 max-h-[80vh] overflow-y-auto">
+            <Card className="p-4">
+              <SafeZoneFinder
+                userLocation={userLocation}
+                onPlaceSelect={handlePlaceSelect}
+                onShowOnMap={handleShowOnMap}
+              />
+            </Card>
+          </div>
+        )}
+
         {/* Heatmap Controls */}
         {activeLayer === "heatmap" && (
           <div className="absolute top-4 left-4 z-[1000]">
@@ -503,6 +583,7 @@ export default function DashboardPage() {
                 {activeLayer === "heatmap" && <span className="text-white text-lg">🔥</span>}
                 {activeLayer === "patrol" && <span className="text-white text-lg">🚔</span>}
                 {activeLayer === "saferoute" && <span className="text-white text-lg">🛡️</span>}
+                {activeLayer === "safeZones" && <span className="text-white text-lg">📍</span>}
                 {activeLayer === "alerts" && <span className="text-white text-lg">⚠️</span>}
                 {activeLayer === "publicReports" && <span className="text-white text-lg">📋</span>}
                 {activeLayer === "report" && <span className="text-white text-lg">📝</span>}
@@ -513,6 +594,7 @@ export default function DashboardPage() {
                   {activeLayer === "heatmap" && "Crime Analytics"}
                   {activeLayer === "patrol" && "Patrol Management"}
                   {activeLayer === "saferoute" && "Route Planning"}
+                  {activeLayer === "safeZones" && "Safe Zone Finder"}
                   {activeLayer === "alerts" && "Safety Alerts"}
                   {activeLayer === "publicReports" && "Report Management"}
                   {activeLayer === "report" && "Incident Reporting"}
@@ -536,6 +618,7 @@ export default function DashboardPage() {
                   {activeLayer === "heatmap" && <span className="text-white text-sm">🔥</span>}
                   {activeLayer === "patrol" && <span className="text-white text-sm">🚔</span>}
                   {activeLayer === "saferoute" && <span className="text-white text-sm">🛡️</span>}
+                  {activeLayer === "safeZones" && <span className="text-white text-sm">📍</span>}
                   {activeLayer === "alerts" && <span className="text-white text-sm">⚠️</span>}
                   {activeLayer === "publicReports" && <span className="text-white text-sm">📋</span>}
                   {activeLayer === "report" && <span className="text-white text-sm">📝</span>}
@@ -546,6 +629,7 @@ export default function DashboardPage() {
                     {activeLayer === "heatmap" && "Crime Analytics"}
                     {activeLayer === "patrol" && "Patrol Management"}
                     {activeLayer === "saferoute" && "Route Planning"}
+                    {activeLayer === "safeZones" && "Safe Zone Finder"}
                     {activeLayer === "alerts" && "Safety Alerts"}
                     {activeLayer === "publicReports" && "Report Management"}
                     {activeLayer === "report" && "Incident Reporting"}
