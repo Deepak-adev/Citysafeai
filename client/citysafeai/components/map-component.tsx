@@ -1488,28 +1488,57 @@ function calculateDistance(coord1: number[], coord2: number[]) {
 
 async function getRoadRoute(L: any, start: [number, number], end: [number, number]) {
   try {
-    // Use OpenRouteService for road routing
-    const apiKey = '5b3ce3597851110001cf6248c8b8b8b8' // Free API key for demo
-    const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${start[1]},${start[0]}&end=${end[1]},${end[0]}`
+    // Use Django backend for road routing
+    const url = `http://localhost:8000/api/route-coordinates/?source=${start[0]},${start[1]}&destination=${end[0]},${end[1]}`
     
     const response = await fetch(url)
     const data = await response.json()
     
-    if (data.features && data.features[0] && data.features[0].geometry) {
-      const coordinates = data.features[0].geometry.coordinates
+    if (data.status === 'success' && data.route_coordinates) {
+      const coordinates = data.route_coordinates
       return coordinates.map((coord: number[]) => [coord[1], coord[0]]) // Convert to [lat, lng]
     }
   } catch (error) {
-    console.log('Routing API error, using straight line:', error)
+    console.log('Django routing API error, using straight line:', error)
   }
   
   // Fallback to straight line if routing fails
   return [start, end]
 }
 
+async function getPatrolRouteFromBackend(waypoints: any[]) {
+  try {
+    const url = 'http://localhost:8000/api/patrol-route-coordinates/'
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ waypoints })
+    })
+    
+    const data = await response.json()
+    
+    if (data.status === 'success' && data.route_coordinates) {
+      return data.route_coordinates.map((coord: number[]) => [coord[1], coord[0]]) // Convert to [lat, lng]
+    }
+  } catch (error) {
+    console.log('Django patrol route API error:', error)
+  }
+  
+  return null
+}
+
 async function getMultiPointRoute(L: any, waypoints: any[]) {
   if (waypoints.length < 2) return waypoints.map((wp: any) => [wp.lat, wp.lng])
   
+  // Try to get route from Django backend first
+  const backendRoute = await getPatrolRouteFromBackend(waypoints)
+  if (backendRoute) {
+    return backendRoute
+  }
+  
+  // Fallback to individual segments
   let routeCoords: [number, number][] = []
   
   // Get route between each consecutive pair of waypoints
