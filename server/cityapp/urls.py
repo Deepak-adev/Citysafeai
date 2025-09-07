@@ -16,6 +16,7 @@ urlpatterns = [
     path('api/emergency-contacts/', views.emergency_contacts, name='emergency_contacts'),
     path('api/update-location/', views.update_location, name='update_location'),
     path('api/user-activities/', views.user_activities, name='user_activities'),
+<<<<<<< HEAD
 
     path('route/', views.route_page, name='route_page'),
     path('api/route/', views.get_route_coordinates, name='get_route_coordinates'),
@@ -33,4 +34,6 @@ urlpatterns = [
     path('api/emergency-contacts/', views.emergency_contacts, name='emergency_contacts'),
     path('api/update-location/', views.update_location, name='update_location'),
     path('api/user-activities/', views.user_activities, name='user_activities'),
+=======
+>>>>>>> 1fe3b94142b45f74d20dbf3c4922d83cc6b588cb
 ]

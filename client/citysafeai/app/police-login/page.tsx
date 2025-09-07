@@ -177,76 +177,31 @@ export default function PoliceLoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 text-slate-800 overflow-hidden">
+    <div className="min-h-screen bg-gray-50">
       <Navbar />
-      {/* Government Seal Background Pattern */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-5">
-        <div className="absolute top-10 left-10 w-32 h-32">
-          <Building className="w-full h-full text-blue-600" />
-        </div>
-        <div className="absolute top-20 right-20 w-24 h-24">
-          <Award className="w-full h-full text-emerald-600" />
-        </div>
-        <div className="absolute bottom-20 left-1/4 w-28 h-28">
-          <Globe className="w-full h-full text-amber-600" />
-        </div>
-        <div className="absolute bottom-32 right-1/3 w-20 h-20">
-          <Shield className="w-full h-full text-blue-600" />
-        </div>
-      </div>
 
-      {/* Subtle Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-100/50 via-transparent to-transparent"></div>
-        <div className="absolute bottom-0 right-0 w-full h-full bg-gradient-to-tl from-emerald-100/50 via-transparent to-transparent"></div>
-      </div>
-
-      {/* Floating Elements with Parallax */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        <div 
-          className="absolute top-1/4 left-10 w-6 h-6 bg-blue-200 rounded-full opacity-40 transition-transform duration-1000"
-          style={{ transform: `translateY(${scrollY * 0.1}px) rotate(${scrollY * 0.05}deg)` }}
-        ></div>
-        <div 
-          className="absolute top-1/3 right-20 w-4 h-4 bg-emerald-200 rounded-full opacity-40 transition-transform duration-1000"
-          style={{ transform: `translateY(${scrollY * -0.15}px) rotate(${scrollY * -0.08}deg)` }}
-        ></div>
-        <div 
-          className="absolute bottom-1/4 left-1/4 w-5 h-5 bg-amber-200 rounded-full opacity-40 transition-transform duration-1000"
-          style={{ transform: `translateY(${scrollY * 0.12}px) rotate(${scrollY * 0.06}deg)` }}
-        ></div>
-      </div>
-
-      <div className="relative min-h-screen flex items-center justify-center px-6 lg:px-8">
-        <div className="w-full max-w-md space-y-6">
-          <div className="text-center space-y-4">
+      <div className="flex items-center justify-center px-6 py-12">
+        <div className="w-full max-w-md space-y-8">
+          <div className="text-center">
             <Link
               href="/"
-              className="group inline-flex items-center text-blue-700 hover:text-blue-800 transition-all duration-300 text-sm font-medium hover:scale-105 transform"
+              className="inline-flex items-center text-blue-600 hover:text-blue-700 text-sm font-medium mb-6"
             >
-              <ChevronLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform duration-300" />
+              <ChevronLeft className="w-4 h-4 mr-2" />
               Back to Home
             </Link>
             
-            
-            <h1 className="text-4xl md:text-5xl font-bold mb-4 leading-tight">
-              <span className="block text-slate-900 mb-2">
-                Police
-              </span>
-              <span className="block bg-gradient-to-r from-blue-700 to-emerald-700 bg-clip-text text-transparent">
-                Dashboard Access
-              </span>
-            </h1>
-            <p className="text-lg text-slate-600 font-medium">Secure access to your law enforcement dashboard</p>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Police Dashboard Access</h1>
+            <p className="text-gray-600">Secure access to your law enforcement dashboard</p>
           </div>
 
           {/* Login Form */}
-          <Card className="group relative bg-gradient-to-br from-white rounded-xl border border-slate-200 hover:border-blue-300 hover:shadow-xl transition-all duration-700 ease-out hover:transform hover:scale-105 hover:-translate-y-2">
+          <Card className="bg-white border border-gray-200 shadow-sm">
             <CardHeader className="space-y-1 pb-4">
-              <CardTitle className="text-2xl text-center text-slate-900 group-hover:text-blue-700 transition-all duration-300">
+              <CardTitle className="text-2xl text-center text-gray-900">
                 Sign In
               </CardTitle>
-              <CardDescription className="text-center text-slate-600 font-medium">
+              <CardDescription className="text-center text-gray-600">
                 Enter your credentials to access the police dashboard
               </CardDescription>
             </CardHeader>
@@ -275,7 +230,7 @@ export default function PoliceLoginPage() {
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 <div className="space-y-2">
-                  <Label htmlFor="policeId" className="text-sm font-semibold text-slate-700">
+                  <Label htmlFor="policeId" className="text-sm font-medium text-gray-700">
                     Police ID
                   </Label>
                   <Input
@@ -290,8 +245,8 @@ export default function PoliceLoginPage() {
                       }
                     }}
                     required
-                    className={`h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-300 text-black ${
-                      errors.policeId ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                    className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                      errors.policeId ? 'border-red-500 focus:border-red-500' : ''
                     }`}
                   />
                   {errors.policeId && (
@@ -302,7 +257,7 @@ export default function PoliceLoginPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="username" className="text-sm font-semibold text-slate-700">
+                  <Label htmlFor="username" className="text-sm font-medium text-gray-700">
                     Username
                   </Label>
                   <Input
@@ -317,8 +272,8 @@ export default function PoliceLoginPage() {
                       }
                     }}
                     required
-                    className={`h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-300 text-black ${
-                      errors.username ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                    className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                      errors.username ? 'border-red-500 focus:border-red-500' : ''
                     }`}
                   />
                   {errors.username && (
@@ -329,7 +284,7 @@ export default function PoliceLoginPage() {
                   )}
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="password" className="text-sm font-semibold text-slate-700">
+                  <Label htmlFor="password" className="text-sm font-medium text-gray-700">
                     Password
                   </Label>
                   <Input
@@ -344,8 +299,8 @@ export default function PoliceLoginPage() {
                       }
                     }}
                     required
-                    className={`h-12 bg-white border-slate-200 focus:border-blue-500 focus:ring-blue-500/20 transition-all duration-300 text-black ${
-                      errors.password ? 'border-red-500 focus:border-red-500 focus:ring-red-500/20' : ''
+                    className={`h-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500 ${
+                      errors.password ? 'border-red-500 focus:border-red-500' : ''
                     }`}
                   />
                   {errors.password && (
@@ -357,19 +312,16 @@ export default function PoliceLoginPage() {
                 </div>
                 <Button 
                   type="submit" 
-                  className="w-full h-12 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold hover:shadow-xl hover:shadow-blue-500/25 transition-all duration-500 transform hover:scale-105 hover:-translate-y-1 hover:from-blue-700 hover:to-blue-800" 
+                  className="w-full h-12 bg-blue-600 text-white hover:bg-blue-700" 
                   disabled={isLoading}
                 >
                   {isLoading ? "Signing In..." : "Sign In"}
                 </Button>
               </form>
             </CardContent>
-            
-            {/* Subtle Background Animation */}
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-50/0 to-emerald-50/0 group-hover:from-blue-50/30 group-hover:to-emerald-50/30 rounded-xl transition-all duration-500 pointer-events-none"></div>
           </Card>
 
-          <div className="text-center text-sm text-slate-500 font-medium px-4 space-y-2">
+          <div className="text-center text-sm text-gray-500 px-4 space-y-2">
             <p>This is a secure law enforcement system. Unauthorized access is prohibited.</p>
             <p>
               Need an account?{" "}

@@ -55,11 +55,79 @@ export default function MapComponent({ activeLayer, source, destination, showRou
   const mapInstanceRef = useRef<any>(null)
   const layersRef = useRef<any>({})
   const [isLoadingHotspots, setIsLoadingHotspots] = useState(false)
+  const [userLocation, setUserLocation] = useState<{lat: number, lng: number} | null>(null)
+  const [isRecenterLoading, setIsRecenterLoading] = useState(false)
   const lastHotspotUpdateRef = useRef<number>(0)
   const hotspotCacheRef = useRef<any[]>([])
   const cacheTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const isInitializingRef = useRef<boolean>(false)
   const retryCountRef = useRef<number>(0)
+
+  // Function to recenter map on user location
+  const handleRecenter = async () => {
+    if (!mapInstanceRef.current) return
+    
+    setIsRecenterLoading(true)
+    
+    try {
+      if (navigator.geolocation) {
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 60000
+          })
+        })
+        
+        const coords = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude
+        }
+        
+        setUserLocation(coords)
+        
+        // Center map on user location
+        mapInstanceRef.current.setView([coords.lat, coords.lng], 15)
+        
+        // Add a marker for user location
+        const L = (window as any).L
+        if (L) {
+          // Remove existing user location marker
+          if (layersRef.current.userLocation) {
+            mapInstanceRef.current.removeLayer(layersRef.current.userLocation)
+          }
+          
+          // Create new user location marker
+          const userIcon = L.divIcon({
+            className: 'user-location-marker',
+            html: `
+              <div style="
+                width: 20px;
+                height: 20px;
+                background: #3b82f6;
+                border: 3px solid white;
+                border-radius: 50%;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+              "></div>
+            `,
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+          })
+          
+          layersRef.current.userLocation = L.marker([coords.lat, coords.lng], { icon: userIcon })
+            .addTo(mapInstanceRef.current)
+            .bindPopup('Your current location')
+        }
+        
+      } else {
+        console.log('Geolocation is not supported by this browser')
+      }
+    } catch (error) {
+      console.error('Error getting user location:', error)
+    } finally {
+      setIsRecenterLoading(false)
+    }
+  }
 
   // Handle route display
   useEffect(() => {
@@ -372,6 +440,7 @@ export default function MapComponent({ activeLayer, source, destination, showRou
             
             initialCoords = [position.coords.latitude, position.coords.longitude]
             initialZoom = 13 // Closer zoom for current location
+            setUserLocation({ lat: position.coords.latitude, lng: position.coords.longitude })
             console.log('Map initialized with current location:', initialCoords)
           }
         } catch (error) {
@@ -390,7 +459,21 @@ export default function MapComponent({ activeLayer, source, destination, showRou
         }
 
         // Initialize map with current location or default
-        const map = L.map(mapRef.current).setView(initialCoords, initialZoom)
+        const map = L.map(mapRef.current, {
+          zoomControl: true,
+          scrollWheelZoom: true,
+          doubleClickZoom: true,
+          boxZoom: true,
+          keyboard: true,
+          dragging: true,
+          touchZoom: true
+        }).setView(initialCoords, initialZoom)
+        
+        // Add zoom controls
+        L.control.zoom({
+          position: 'topright'
+        }).addTo(map)
+        
         return map
       }
 
@@ -664,6 +747,24 @@ export default function MapComponent({ activeLayer, source, destination, showRou
   return (
     <div className="relative w-full h-full rounded-lg">
       <div ref={mapRef} className="w-full h-full rounded-lg" />
+      
+      {/* Recenter Button */}
+      <button
+        onClick={handleRecenter}
+        disabled={isRecenterLoading}
+        className="absolute top-4 left-4 z-[1000] bg-white hover:bg-gray-50 border border-gray-300 rounded-lg p-2 shadow-lg transition-colors disabled:opacity-50"
+        title="Recenter on your location"
+      >
+        {isRecenterLoading ? (
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        ) : (
+          <svg className="w-5 h-5 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        )}
+      </button>
+      
       {isLoadingHotspots && (
         <div className="absolute top-4 right-4 z-[1000] bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg p-3 shadow-lg">
           <div className="flex items-center space-x-2">
